@@ -31,11 +31,15 @@
 
 extern panic();
 extern read();
+extern expect();
+extern expect_name();
 extern read_and_expect();
+extern dont_expect();
+extern read_and_dont_expect();
 extern char* tokgetn();
-extern char* strcmp();
 extern int tokread();
 extern char* tokcopys();
+extern int tokchecks();
 
 struct Keyword
 {
@@ -154,7 +158,7 @@ nodprint(node, depth)
       printf("+ %i", node->integer);
     break;
     case NODE_TYPE_ASSEMBLY:
-      printf("+ ASM %i", node->text);
+      printf("+ ASM %s", node->text);
     break;
     case NODE_TYPE_WHILE:
       printf("+ while");
@@ -255,6 +259,22 @@ nodconst(name, id, val)
   constants[id] = constant;
 }
 
+nodrdasm(parent)
+  struct Node* parent;
+{
+  struct Node* node;
+
+  expect_name("asm");
+  read_and_expect('(');
+  read_and_expect('s');
+  
+  node = nodmk(NODE_TYPE_ASSEMBLY, parent);
+  node->text = tokcopys();
+  
+  read_and_expect(')');
+  read_and_expect(';');
+}
+
 nodrdscope(parent)
   struct Node* parent;
 {
@@ -265,9 +285,20 @@ nodrdscope(parent)
   expect('{');
   while(read() != 'X')
   {
+    printf("%c", token);
+
+    dont_expect('{');
+
     if (token == '}')
       break;
+    
+    if (token == 'n' && tokchecks("asm"))
+    {
+      nodrdasm(node);
+      continue;
+    }
   }
+  printf("\n");
 }
 
 
@@ -348,7 +379,9 @@ nodfile()
 
 expect(ch)
   char ch;
-{ extern int token;
+{
+  extern int token;
+  
   if (token == 'X')
   {
     panic("Unxpected End of File");
@@ -358,6 +391,17 @@ expect(ch)
   {
     panic("Unexpected token. Want a %c. Got %c", ch, token);
   }
+}
+
+expect_name(name)
+  char* name;
+{
+  if (token != 'n')
+  {
+    panic("Not name token");
+  }
+
+  return tokchecks(name);
 }
 
 read()
@@ -372,6 +416,22 @@ read_and_expect(ch)
 {
   read();
   expect(ch);
+}
+
+dont_expect(ch)
+  char ch;
+{
+  if (token == ch)
+  {
+    panic("Unwanted token. Got %c", ch);
+  }
+}
+
+read_and_dont_expect(ch)
+  char ch;
+{
+  read();
+  dont_expect(ch);
 }
 
 #if NO

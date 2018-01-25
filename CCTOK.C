@@ -287,6 +287,14 @@ char* tokgets()
   return(tstr);
 }
 
+/* check token string */
+tokchecks(s)
+  char* s;
+{
+  extern char tstr[256];
+  return strcmp(s, tstr) == 0;
+}
+
 /* copy and return token string */
 char* tokcopys()
 {
