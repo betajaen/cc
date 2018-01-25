@@ -18,6 +18,8 @@
 #define NODE_TYPE_TYPEDECL        13
 #define NODE_TYPE_CTYPE           14
 #define NODE_TYPE_CTYPES          15
+#define NODE_TYPE_SYMBOLS         16
+#define NODE_TYPE_STRUCT          17
 
 #define SCOPE_TYPE_FUNCTION       0
 #define SCOPE_TYPE_IF             1
@@ -47,10 +49,14 @@
 #define CONSTANT_YES       3
 #define CONSTANT_SIZE      4
 
-#define FUNCTION_FLAGS_DECLARED   1
-#define FUNCTION_FLAGS_TYPE_DECL  2
-#define FUNCTION_FLAGS_SCOPE      4
-#define FUNCTION_FLAGS_ARGS       8
+#define NODE_FLAGS_FUNCTION_FLAGS_DECLARED    1
+#define NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL   2
+#define NODE_FLAGS_FUNCTION_FLAGS_SCOPE       4
+#define NODE_FLAGS_FUNCTION_FLAGS_ARGS        8
+#define NODE_FLAGS_TYPE_FLAGS_STRUCT          16
+#define NODE_FLAGS_TYPEDECL_FLAGS_EXTERN      32
+#define NODE_FLAGS_TYPEDECL_FLAGS_POINTER     64
+#define NODE_FLAGS_TYPEDECL_FLAGS_INTEGERISIZE 128
 
 extern panic();
 extern read();
@@ -76,15 +82,6 @@ struct Keyword
 
 struct Keyword keywords[KEYWORD_TYPE_SIZE];
 
-struct Constant
-{
-  char* text;
-  int   id;
-  int   val;
-};
-
-struct Constant constants[CONSTANT_SIZE];
-
 struct Node
 {
   int          type;
@@ -97,13 +94,16 @@ struct Node
   struct Node* first;
   struct Node* last;
   struct Node* ctype;
+  struct Node* cond;
   int          integer;
   int          flags;
 };
 
 int nodeidx;
-struct Node* nodes;
+struct Node* cexterns;
 struct Node* ctypes;
+struct Node* csymbols;
+
 int token;
 
 struct Node* nodmk(type, parent)
@@ -115,17 +115,19 @@ struct Node* nodmk(type, parent)
 
   struct Node* node;
   node = calloc(1, sizeof(struct Node));
-  node->type = type;
-  node->sub_type = 0;
-  node->symbol = 0;
-  node->index = nodeidx++;
-  node->text = 0;
-  node->next = 0;
-  node->prev = 0;
-  node->first = 0;
-  node->last = 0;
-  node->ctype = 0;
-  node->integer = 0;
+  node->type      = type;
+  node->sub_type  = 0;
+  node->symbol    = 0;
+  node->index     = nodeidx++;
+  node->text      = 0;
+  node->next      = 0;
+  node->prev      = 0;
+  node->first     = 0;
+  node->last      = 0;
+  node->ctype     = 0;
+  node->integer   = 0;
+  node->cond      = 0;
+  node->flags     = 0;
 
   if (parent != 0)
   {
@@ -177,6 +179,24 @@ nodfindctype(name)
   return 0;
 }
 
+nodfindcsym(name)
+  char* name;
+{
+  struct Node* csym;
+  csym = csymbols->first;
+
+  while(csym != 0)
+  {
+    if (strcmp(csym->text, name) == 0)
+    {
+      return csym;
+    }
+    csym = csym->next;
+  }
+
+  return 0;
+}
+
 nodprint(node, depth)
   struct Node* node;
   int depth;
@@ -200,7 +220,7 @@ nodprint(node, depth)
       printf("+ none");
     break;
     case NODE_TYPE_FILE:
-      printf("+ file");
+      printf("+ File");
     break;
     case NODE_TYPE_EOF:
       printf("+ EOF");
@@ -239,9 +259,11 @@ nodprint(node, depth)
       printf("+ CTypes");
     break;
     case NODE_TYPE_TYPEDECL:
-      printf("+ Type Decl '%s'\n", node->text);
-      nodprint(node->ctype, depth + 1);
-    return;
+      printf("+ Type Decl '%s'", node->text);
+    break;
+    case NODE_TYPE_SYMBOLS:
+      printf("+ CSymbols");
+    break;
     case NODE_TYPE_ASNOP:
       printf("+ ASNOP ");
       switch(node->sub_type)
@@ -262,8 +284,51 @@ nodprint(node, depth)
       }
     break;
   }
-
+  
   printf("\n");
+  
+  if (node->ctype != 0)
+  {
+    nodprint(node->ctype, depth + 1);
+  }
+  
+  if (node->cond != 0)
+  {
+    nodprint(node->cond, depth + 1);
+  }
+
+  if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_POINTER) != 0)
+  {
+    i = 0;
+    while(i < depth)
+    {
+      printf("-");
+      i++;
+    }
+    printf("+ Is Pointer: TRUE\n");
+  }
+  
+  if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_EXTERN) != 0)
+  {
+    i = 0;
+    while(i < depth)
+    {
+      printf("-");
+      i++;
+    }
+    printf("+ Is Extern: TRUE\n");
+  }
+
+  if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_INTEGERISIZE) != 0)
+  {
+    i = 0;
+    while(i < depth)
+    {
+      printf("-");
+      i++;
+    }
+    printf("+ Array Size: %i\n", node->integer);
+  }
 
   child = node->first;
   while(child != 0)
@@ -298,30 +363,7 @@ nodtoktokw()
   return(KEYWORD_TYPE_SIZE);
 }
 
-nodtoconst()
-{
-  char* n0;
-  int   i = 0;
-
-  n0 = tokgetn();
-  
-  while(i < CONSTANT_SIZE)
-  {
-    char* n1;
-    
-    n1 = constants[i].text;
-
-    if (strcmp(n0, n1) == 0)
-    {
-      return i;
-    }
-
-    i++;
-  }
-
-  return(CONSTANT_SIZE);
-}
-
+/* node keyword */
 nodkw(name, id)
   char* name;
   int id;
@@ -334,18 +376,20 @@ nodkw(name, id)
   keywords[id] = keyword;
 }
 
-nodconst(name, id, val)
+/* node integer symbol */
+nodsymi(name, id, val)
   char* name;
   int id;
   int val;
 {
-  extern struct Constant constants[];
-  struct Constant constant;
-  constant.text = name;
-  constant.id   = id;
-  constant.val  = val;
-
-  constants[id] = constant;
+  struct Node* node;
+  node = nodmk(NODE_TYPE_SYMBOL, csymbols);
+  node->text = name;
+  
+  struct Node* value;
+  value = nodmk(NODE_TYPE_NUMBER, node);
+  value->integer = val;
+  value->ctype   = nodfindctype("int");
 }
 
 nodrdasm(parent)
@@ -384,6 +428,51 @@ nodrdasnopr(parent)
   {
     panic("Unknown right token type");
   }
+}
+
+nodrdwhile(parent)
+  struct Node* parent;
+{
+  struct Node* while_;
+  struct Scope* scope;
+
+  while_ = nodmk(NODE_TYPE_WHILE, parent);
+  
+  read_and_expect('(');
+  read();
+
+  /* while(TRUE)
+     while(FALSE)
+     while(any_symbol)
+  */
+  if (token == 'n')
+  {
+    while_->cond = nodfindcsym(tokgets());
+  }
+  /*
+    while(0)  -> while(FALSE)
+    while(1)  -> while(TRUE)
+    while(any other number) -> while(TRUE)
+  */
+  else if (token == 'i')
+  {
+    if (tokgeti() == 0)
+    {
+      while_->cond = nodfindcsym("FALSE");
+    }
+    else
+    {
+      while_->cond = nodfindcsym("TRUE");
+    }
+  }
+  else
+  {
+    panic("Unexpected symbol for while");
+  }
+  
+  read_and_expect(')');
+  read_and_expect('{');
+  nodrdscope(while_);
 }
 
 /*
@@ -525,13 +614,46 @@ nodrdasnop(parent)
 
 }
 
+/* nod read typedecl */
 nodrdtypedecl(scope)
   struct Node* scope;
 {
+  int is_struct;
+  int is_pointer;
+  int is_extern;
   struct Node* node;
-  node = nodmk(NODE_TYPE_TYPEDECL, scope);
 
+  is_struct  = FALSE;
+  is_pointer = FALSE;
+  is_extern  = FALSE;
+
+  node       = nodmk(NODE_TYPE_TYPEDECL, scope);
+
+  /*
+    int  x;
+    int* x;
+    int  x[];
+    int  x[4];
+    struct test x;
+    struct test* x;
+    struct test  x[];
+    struct test  y[];
+  */
   char* type_name = tokgets();
+
+  if (strcmp(type_name, "extern") == 0)
+  {
+    is_extern = TRUE;
+    node->flags |= NODE_FLAGS_TYPEDECL_FLAGS_EXTERN;
+    read();
+  }
+
+  if (strcmp(type_name, "struct") == 0)
+  {
+    is_struct = TRUE;
+    read();
+  }
+
   node->ctype = nodfindctype(type_name);
 
   if (node->ctype == 0)
@@ -539,11 +661,57 @@ nodrdtypedecl(scope)
     printf("Type %s:\n", type_name);
     panic("Unknown type!");
   }
+  
+  if (is_struct && (node->ctype->flags & NODE_FLAGS_TYPE_FLAGS_STRUCT) == 0)
+  {
+    panic("Not a struct");
+  }
 
-  read_and_expect('n');
+  read();
+
+  if (token == '*')
+  {
+    is_pointer = TRUE;
+    node->flags |= NODE_FLAGS_TYPEDECL_FLAGS_POINTER;
+    read();
+  }
+
+  expect('n');
+  
   node->text = tokcopys();
 
-  read_and_expect(';');
+  read();
+
+  /* []
+     [329]
+  */
+  if (token == '[')
+  {
+    is_pointer = TRUE;
+    node->flags |= NODE_FLAGS_TYPEDECL_FLAGS_POINTER;
+
+    read();
+
+    if (token == 'i')
+    {
+      node->integer = tokgeti();
+      node->flags |= NODE_FLAGS_TYPEDECL_FLAGS_INTEGERISIZE;
+      read();
+    }
+    else
+    {
+      if (is_extern == FALSE)
+      {
+        panic("Size not given for array");
+      }
+    }
+
+    expect(']');
+
+    read();
+  }
+
+  expect(';');
 }
 
 nodrdscope(parent)
@@ -556,7 +724,7 @@ nodrdscope(parent)
   scope = nodmk(NODE_TYPE_SCOPE, parent);
   expect('{');
   
-  type_decl = (parent->flags & FUNCTION_FLAGS_TYPE_DECL) != 0;
+  type_decl = (parent->flags & NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL) != 0;
   while(read() != 'X')
   {
     dont_expect('{');
@@ -575,9 +743,19 @@ nodrdscope(parent)
         if (type_decl == 0)
         {
           type_decl = 1;
-          parent->flags |= FUNCTION_FLAGS_TYPE_DECL;
+          parent->flags |= NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL;
         }
         nodrdasm(scope);
+        continue;
+      }
+      else if (tokchecks("while"))
+      {
+        if (type_decl == 0)
+        {
+          type_decl = 1;
+          parent->flags |= NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL;
+        }
+        nodrdwhile(scope);
         continue;
       }
       else if (tokchecks("int"))
@@ -607,12 +785,21 @@ nodrdscope(parent)
         nodrdtypedecl(scope);
         continue;
       }
+      else if (tokchecks("extern"))
+      {
+        if (type_decl == 1)
+        {
+          panic("type declared after statements!");
+        }
+        nodrdtypedecl(scope);
+        continue;
+      }
       else
       {
         if (type_decl == 0)
         {
           type_decl = 1;
-          parent->flags |= FUNCTION_FLAGS_TYPE_DECL;
+          parent->flags |= NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL;
         }
         nodrdasnop(scope);
       }
@@ -631,10 +818,10 @@ nodrdfun()
         Scope
       }
   */
-  struct Node* node = nodmk(NODE_TYPE_FUNCTION, nodes);
+  struct Node* node = nodmk(NODE_TYPE_FUNCTION, cexterns);
   node->text = tokcopys();
   
-  node->flags |= FUNCTION_FLAGS_DECLARED;
+  node->flags |= NODE_FLAGS_FUNCTION_FLAGS_DECLARED;
   
   read_and_expect('(');
   // @TODO argument parsing
@@ -642,7 +829,7 @@ nodrdfun()
   read_and_expect(')');
   
   // @TODO argument parsing
-  node->flags |= FUNCTION_FLAGS_SCOPE;
+  node->flags |= NODE_FLAGS_FUNCTION_FLAGS_SCOPE;
 
   read_and_expect('{');
 
@@ -668,22 +855,26 @@ nodinit()
 {
   nodkw("int", KEYWORD_TYPE_INT);
   nodkw("char", KEYWORD_TYPE_CHAR);
-
-  nodconst("FALSE", CONSTANT_FALSE, 0);
-  nodconst("TRUE", CONSTANT_TRUE, 1);
-  nodconst("NO", CONSTANT_NO, 0);
-  nodconst("YES", CONSTANT_YES, 1);
-
-  nodes = nodmk(NODE_TYPE_FILE, 0);
-  ctypes = nodmk(NODE_TYPE_CTYPES, 0);
   
+  ctypes = nodmk(NODE_TYPE_CTYPES, 0);
   nodmkctype("char", 1);
   nodmkctype("int",  2);
+  
+  csymbols = nodmk(NODE_TYPE_SYMBOLS, 0);
+
+  nodsymi("FALSE", CONSTANT_FALSE, 0);
+  nodsymi("TRUE", CONSTANT_TRUE, 1);
+  nodsymi("NO", CONSTANT_NO, 0);
+  nodsymi("YES", CONSTANT_YES, 1);
+  
+  cexterns = nodmk(NODE_TYPE_FILE, 0);
+  
+
 }
 
 nodstop()
 {
-  cfree(nodes);
+  cfree(cexterns);
 }
 
 nodfile()
@@ -707,7 +898,8 @@ nodfile()
   }
 
   nodprint(ctypes, 0);
-  nodprint(nodes, 0);
+  nodprint(csymbols, 0);
+  nodprint(cexterns, 0);
 
 }
 

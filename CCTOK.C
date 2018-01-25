@@ -11,6 +11,8 @@
 #define TOKEN_PARENTHESES_CLOSE   ')'
 #define TOKEN_BRACE_OPEN          '{'
 #define TOKEN_BRACE_CLOSE         '}'
+#define TOKEN_BRACKET_OPEN        '['
+#define TOKEN_BRACKET_CLOSE       ']'
 #define TOKEN_HASH                '#'
 #define TOKEN_SEMICOLON           ';'
 #define TOKEN_LESS                '<'
@@ -122,7 +124,30 @@ tokrwsp()
 tokreadi(tch)
 char tch;
 {
-  return TOKEN_INTEGER;
+  extern FILE* tfile;
+  extern char  tstr[256];
+
+  tint = tch - '0';
+  
+  while(TRUE)
+  {
+    if (fread(&tch, 1, 1, tfile) == 0)
+    {
+      break;
+    }
+
+    if (tokisnumber(tch) == FALSE)
+    {
+      fseek(tfile, -1, SEEK_CUR);
+      break;
+    }
+
+    tint *= 10;
+    tch -= '0';
+    tint += tch;
+  }
+
+  return(TOKEN_INTEGER);
 }
 
 /* read symbol */
@@ -162,7 +187,30 @@ tokreadn()
 /* read literal */
 tokreadl()
 {
-  return TOKEN_INTEGER;
+  
+  extern FILE* tfile;
+  extern char  tstr[256];
+  extern char  tch;
+
+  tint = tch;
+  
+  while(TRUE)
+  {
+    if (fread(&tch, 1, 1, tfile) == 0)
+    {
+      break;
+    }
+
+    if (tch == '\'')
+    {
+      break;
+    }
+
+    tint *= 256;
+    tint += tch;
+  }
+
+  return(TOKEN_INTEGER);
 }
 
 /* read string */
@@ -264,6 +312,10 @@ tokread()
       return(TOKEN_BRACE_OPEN);
     case '}':
       return(TOKEN_BRACE_CLOSE);
+    case '[':
+      return(TOKEN_BRACKET_OPEN);
+    case ']':
+      return(TOKEN_BRACKET_CLOSE);
     case ';':
       return(TOKEN_SEMICOLON);
     case '<':
