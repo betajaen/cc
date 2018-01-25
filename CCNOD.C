@@ -50,13 +50,14 @@
 #define CONSTANT_SIZE      4
 
 #define NODE_FLAGS_FUNCTION_FLAGS_DECLARED    1
-#define NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL   2
-#define NODE_FLAGS_FUNCTION_FLAGS_SCOPE       4
-#define NODE_FLAGS_FUNCTION_FLAGS_ARGS        8
-#define NODE_FLAGS_TYPE_FLAGS_STRUCT          16
-#define NODE_FLAGS_TYPEDECL_FLAGS_EXTERN      32
-#define NODE_FLAGS_TYPEDECL_FLAGS_POINTER     64
+#define NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL    2
+#define NODE_FLAGS_FUNCTION_FLAGS_SCOPE        4
+#define NODE_FLAGS_FUNCTION_FLAGS_ARGS         8
+#define NODE_FLAGS_TYPE_FLAGS_STRUCT           16
+#define NODE_FLAGS_TYPEDECL_FLAGS_EXTERN       32
+#define NODE_FLAGS_TYPEDECL_FLAGS_POINTER      64
 #define NODE_FLAGS_TYPEDECL_FLAGS_INTEGERISIZE 128
+#define NODE_FLAGS_TYPEDECL_FLAGS_FUNCTION     256
 
 extern panic();
 extern read();
@@ -328,6 +329,17 @@ nodprint(node, depth)
       i++;
     }
     printf("+ Array Size: %i\n", node->integer);
+  }
+  
+  if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_FUNCTION) != 0)
+  {
+    i = 0;
+    while(i < depth)
+    {
+      printf("-");
+      i++;
+    }
+    printf("+ Is Function Decl: TRUE\n");
   }
 
   child = node->first;
@@ -621,6 +633,7 @@ nodrdtypedecl(scope)
   int is_struct;
   int is_pointer;
   int is_extern;
+  int is_function;
   struct Node* node;
 
   is_struct  = FALSE;
@@ -638,6 +651,7 @@ nodrdtypedecl(scope)
     struct test* x;
     struct test  x[];
     struct test  y[];
+    extern int   fn();
   */
   char* type_name = tokgets();
 
@@ -708,6 +722,23 @@ nodrdtypedecl(scope)
 
     expect(']');
 
+    read();
+  }
+
+  /*
+    ();
+  */
+  else if (token == '(')
+  {
+    is_function = TRUE;
+    node->flags |= NODE_FLAGS_TYPEDECL_FLAGS_FUNCTION;
+
+    if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_POINTER) != 0)
+    {
+      panic("Function is marked as pointer");
+    }
+
+    read_and_expect(')');
     read();
   }
 

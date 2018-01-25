@@ -6,6 +6,9 @@ test()
   {
     extern int baz[];
     int bar[22];
+
+    extern int strlen();
+
     foo += 1234;
     foo += 5678;
   }
