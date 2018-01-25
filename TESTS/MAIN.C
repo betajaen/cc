@@ -1,7 +1,19 @@
+tests()
+{
+  int foo;
+  foo = 5;
+}
+
+tests2()
+{
+  int foo;
+  foo = 5;
+}
+
 main()
 {
-  int x;
-  char v;
+  int foo;
+  char bar;
   foo = 3;
   bar = foo;
   foo += 5;

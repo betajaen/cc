@@ -15,6 +15,9 @@
 #define NODE_TYPE_BREAK           10
 #define NODE_TYPE_STRING          11
 #define NODE_TYPE_ASNOP           12
+#define NODE_TYPE_TYPEDECL        13
+#define NODE_TYPE_CTYPE           14
+#define NODE_TYPE_CTYPES          15
 
 #define SCOPE_TYPE_FUNCTION       0
 #define SCOPE_TYPE_IF             1
@@ -43,6 +46,11 @@
 #define CONSTANT_NO        2
 #define CONSTANT_YES       3
 #define CONSTANT_SIZE      4
+
+#define FUNCTION_FLAGS_DECLARED   1
+#define FUNCTION_FLAGS_TYPE_DECL  2
+#define FUNCTION_FLAGS_SCOPE      4
+#define FUNCTION_FLAGS_ARGS       8
 
 extern panic();
 extern read();
@@ -88,11 +96,14 @@ struct Node
   struct Node* prev;
   struct Node* first;
   struct Node* last;
+  struct Node* ctype;
   int          integer;
+  int          flags;
 };
 
 int nodeidx;
 struct Node* nodes;
+struct Node* ctypes;
 int token;
 
 struct Node* nodmk(type, parent)
@@ -113,6 +124,7 @@ struct Node* nodmk(type, parent)
   node->prev = 0;
   node->first = 0;
   node->last = 0;
+  node->ctype = 0;
   node->integer = 0;
 
   if (parent != 0)
@@ -134,6 +146,35 @@ struct Node* nodmk(type, parent)
   }
 
   return(node);
+}
+
+nodmkctype(name, size)
+ char* name;
+ int size;
+{
+  struct Node* node;
+  node = nodmk(NODE_TYPE_CTYPE, ctypes);
+  node->text = name;
+  node->integer = size;
+}
+
+
+nodfindctype(name)
+ char* name;
+{
+  struct Node* ctype;
+  ctype = ctypes->first;
+
+  while(ctype != 0)
+  {
+    if (strcmp(ctype->text, name) == 0)
+    {
+      return ctype;
+    }
+    ctype = ctype->next;
+  }
+
+  return 0;
 }
 
 nodprint(node, depth)
@@ -191,6 +232,16 @@ nodprint(node, depth)
     case NODE_TYPE_STRING:
       printf("+ '%s'", node->text);
     break;
+    case NODE_TYPE_CTYPE:
+      printf("+ Type '%s', Size=%i", node->text, node->integer);
+    break;
+    case NODE_TYPE_CTYPES:
+      printf("+ CTypes");
+    break;
+    case NODE_TYPE_TYPEDECL:
+      printf("+ Type Decl '%s'\n", node->text);
+      nodprint(node->ctype, depth + 1);
+    return;
     case NODE_TYPE_ASNOP:
       printf("+ ASNOP ");
       switch(node->sub_type)
@@ -474,18 +525,40 @@ nodrdasnop(parent)
 
 }
 
+nodrdtypedecl(scope)
+  struct Node* scope;
+{
+  struct Node* node;
+  node = nodmk(NODE_TYPE_TYPEDECL, scope);
+
+  char* type_name = tokgets();
+  node->ctype = nodfindctype(type_name);
+
+  if (node->ctype == 0)
+  {
+    printf("Type %s:\n", type_name);
+    panic("Unknown type!");
+  }
+
+  read_and_expect('n');
+  node->text = tokcopys();
+
+  read_and_expect(';');
+}
+
 nodrdscope(parent)
   struct Node* parent;
 {
   extern int   token;
   struct Node* scope;
-  
+  int type_decl;
+
   scope = nodmk(NODE_TYPE_SCOPE, parent);
   expect('{');
+  
+  type_decl = (parent->flags & FUNCTION_FLAGS_TYPE_DECL) != 0;
   while(read() != 'X')
   {
-    printf("%c", token);
-
     dont_expect('{');
 
     if (token == '}')
@@ -497,20 +570,55 @@ nodrdscope(parent)
     */
     if (token == 'n')
     {
-      printf("%s\n", tokgets());
       if (tokchecks("asm"))
       {
+        if (type_decl == 0)
+        {
+          type_decl = 1;
+          parent->flags |= FUNCTION_FLAGS_TYPE_DECL;
+        }
         nodrdasm(scope);
+        continue;
+      }
+      else if (tokchecks("int"))
+      {
+        if (type_decl == 1)
+        {
+          panic("type declared after statements!");
+        }
+        nodrdtypedecl(scope);
+        continue;
+      }
+      else if (tokchecks("char"))
+      {
+        if (type_decl == 1)
+        {
+          panic("type declared after statements!");
+        }
+        nodrdtypedecl(scope);
+        continue;
+      }
+      else if (tokchecks("struct"))
+      {
+        if (type_decl == 1)
+        {
+          panic("type declared after statements!");
+        }
+        nodrdtypedecl(scope);
+        continue;
       }
       else
       {
-        printf("asnop=%c\n", token);
+        if (type_decl == 0)
+        {
+          type_decl = 1;
+          parent->flags |= FUNCTION_FLAGS_TYPE_DECL;
+        }
         nodrdasnop(scope);
       }
       continue;
     }
   }
-  printf("\n");
 }
 
 
@@ -526,8 +634,16 @@ nodrdfun()
   struct Node* node = nodmk(NODE_TYPE_FUNCTION, nodes);
   node->text = tokcopys();
   
+  node->flags |= FUNCTION_FLAGS_DECLARED;
+  
   read_and_expect('(');
+  // @TODO argument parsing
+
   read_and_expect(')');
+  
+  // @TODO argument parsing
+  node->flags |= FUNCTION_FLAGS_SCOPE;
+
   read_and_expect('{');
 
   nodrdscope(node);
@@ -559,6 +675,10 @@ nodinit()
   nodconst("YES", CONSTANT_YES, 1);
 
   nodes = nodmk(NODE_TYPE_FILE, 0);
+  ctypes = nodmk(NODE_TYPE_CTYPES, 0);
+  
+  nodmkctype("char", 1);
+  nodmkctype("int",  2);
 }
 
 nodstop()
@@ -586,7 +706,9 @@ nodfile()
     }
   }
 
+  nodprint(ctypes, 0);
   nodprint(nodes, 0);
+
 }
 
 expect(ch)
@@ -645,41 +767,3 @@ read_and_dont_expect(ch)
   read();
   dont_expect(ch);
 }
-
-#if NO
-    switch(token)
-    {
-      case 'i':
-        node = nodmk(token);
-
-        printf("Integer = %i\n", tokgeti());
-      break;
-      case 's':
-        printf("String = %s\n", tokgets());
-      break;
-      case 'n':
-        printf("Name = %s\n", tokgetn());
-      break;
-      case '(':
-        printf("Syntax = (\n");
-      break;
-      case ')':
-        printf("Syntax = )\n");
-      break;
-      case '{':
-        printf("Syntax = {\n");
-      break;
-      case '}':
-        printf("Syntax = }\n");
-      break;
-      case ';':
-        printf("Syntax = ;\n");
-      break;
-      case '#':
-        printf("Syntax = #\n");
-      break;
-      default:
-        printf("Unknown %c\n", token);
-      break;
-    }
-#endif
