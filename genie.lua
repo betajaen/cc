@@ -20,19 +20,23 @@ solution "CC"
     objdir          "Build-Object"
 
     flags           { "NoExceptions", "NoRTTI" }
-    defines         { }
+    defines         { "_CRT_SECURE_NO_WARNINGS" }
     links           { }
     includedirs     { }
     libdirs         { }
 
-    excludes        { "CCCLI.C", "CCNOD.C", "CCTOK.C", "CCASM.C", "TESTS/*.C" }
+    excludes        { "CC.C", "CCARY.C", "CCCLI.C", "CCNOD.C", "CCTOK.C", "CCASM.C", "TESTS/*.C" }
 
     files           {
       "CCCLI.C",
       "CCNOD.C",
       "CCTOK.C",
       "CCASM.C",
+      "CCARY.C",
+      "MODERN.C",
       "CC.C",
+      "MODERN/*.C",
       "TESTS/*.C",
+      "HEADERS/*.H",
       "genie.lua"
     }
