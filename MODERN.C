@@ -3,9 +3,9 @@
 */
 
 /* STDLIB.H */
-#define calloc _dx8_calloc
-#define cfree  _dx8_cfree
-#define exit   _dx8_exit
+#define calloc  _dx8_calloc
+#define cfree   _dx8_cfree
+#define exit    _dx8_exit
 
 /* STDIO.H */
 #define fopen   _dx8_fopen

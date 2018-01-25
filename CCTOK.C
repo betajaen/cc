@@ -13,6 +13,13 @@
 #define TOKEN_BRACE_CLOSE         '}'
 #define TOKEN_HASH                '#'
 #define TOKEN_SEMICOLON           ';'
+#define TOKEN_LESS                '<'
+#define TOKEN_MORE                '>'
+#define TOKEN_EQUALS              '='
+#define TOKEN_ADD                 '+'
+#define TOKEN_SUB                 '-'
+#define TOKEN_MUL                 '*'
+#define TOKEN_DIV                 '/'
 
 #define STRING_MAX_SIZE           512
 #define NAME_MAX_SIZE             32
@@ -259,8 +266,22 @@ tokread()
       return(TOKEN_BRACE_CLOSE);
     case ';':
       return(TOKEN_SEMICOLON);
+    case '<':
+      return(TOKEN_LESS);
+    case '>':
+      return(TOKEN_MORE);
     case '#':
       return(TOKEN_HASH);
+    case '=':
+      return(TOKEN_EQUALS);
+    case '+':
+      return(TOKEN_ADD);
+    case '-':
+      return(TOKEN_SUB);
+    case '*':
+      return(TOKEN_MUL);
+    case '/':
+      return(TOKEN_DIV);
   }
 
   return(TOKEN_NONE);
@@ -302,6 +323,24 @@ char* tokcopys()
   int i;
 
   str = calloc(1, tstrlen + 1);
+  i = 0;
+
+  while(i < tstrlen)
+  {
+    str[i] = tstr[i];
+    i++;
+  }
+
+  str[i] = '\0';
+
+  return(str);
+}
+
+/* copy token string to given string, and set length */
+tokcopys2(str)
+  char* str;
+{
+  int i;
   i = 0;
 
   while(i < tstrlen)

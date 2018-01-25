@@ -14,10 +14,25 @@
 #define NODE_TYPE_RETURN          9
 #define NODE_TYPE_BREAK           10
 #define NODE_TYPE_STRING          11
+#define NODE_TYPE_ASNOP           12
 
 #define SCOPE_TYPE_FUNCTION       0
 #define SCOPE_TYPE_IF             1
 #define SCOPE_TYPE_WHILE          2
+
+#define ASNOP_COPY                0 /* a =  b; */
+#define ASNOP_ADD                 1 /* a += b; */
+#define ASNOP_SUB                 2 /* a -= b; */
+#define ASNOP_MUL                 3 /* a *= b; */
+#define ASNOP_DIV                 4 /* a /= b; */
+#define ASNOP_MOD                 5 /* a %= b; */
+#define ASNOP_XOR                 6 /* a ^= b; */
+#define ASNOP_OR                  7 /* a |= b; */
+#define ASNOP_AND                 8 /* a &= b; */
+#define ASNOP_INC                 9 /* a ++;   */
+#define ASNOP_DEC                10 /* a --;   */
+#define ASNOP_SHL                11 /* a <<=   */
+#define ASNOP_SHR                12 /* a >>=   */
 
 #define KEYWORD_TYPE_INT          0
 #define KEYWORD_TYPE_CHAR         1
@@ -39,7 +54,11 @@ extern read_and_dont_expect();
 extern char* tokgetn();
 extern int tokread();
 extern char* tokcopys();
+extern tokcopy2();
 extern int tokchecks();
+
+char  nstra[256];
+char  nstrb[256];
 
 struct Keyword
 {
@@ -172,6 +191,25 @@ nodprint(node, depth)
     case NODE_TYPE_STRING:
       printf("+ '%s'", node->text);
     break;
+    case NODE_TYPE_ASNOP:
+      printf("+ ASNOP ");
+      switch(node->sub_type)
+      {
+        case ASNOP_COPY: printf("=") ; break;
+        case ASNOP_ADD:  printf("+="); break;
+        case ASNOP_SUB:  printf("-="); break;
+        case ASNOP_MUL:  printf("*="); break;
+        case ASNOP_DIV:  printf("/="); break;
+        case ASNOP_MOD:  printf("%="); break;
+        case ASNOP_XOR:  printf("^="); break;
+        case ASNOP_OR:   printf("|="); break;
+        case ASNOP_AND:  printf("&="); break;
+        case ASNOP_INC:  printf("++"); break;
+        case ASNOP_DEC:  printf("--"); break;
+        case ASNOP_SHL:  printf("<<="); break;
+        case ASNOP_SHR:  printf(">>="); break;
+      }
+    break;
   }
 
   printf("\n");
@@ -275,13 +313,174 @@ nodrdasm(parent)
   read_and_expect(';');
 }
 
+nodrdasnopr(parent)
+  struct Node* parent;
+{
+  struct Node* right;
+  read();
+
+  if (token == 'i')
+  {
+    right = nodmk(NODE_TYPE_NUMBER, parent);
+    right->integer = tokgeti();
+  }
+  else if (token == 'n')
+  {
+    right = nodmk(NODE_TYPE_SYMBOL, parent);
+    right->text = tokcopys();
+  }
+  else
+  {
+    panic("Unknown right token type");
+  }
+}
+
+/*
+   a =  b;
+   a += b;
+   a -= b;
+   a *= b;
+   a /= b;
+   a %= b;
+   a ^= b;
+   a |= b;
+   a &= b;
+   a ++;
+   a --;
+   a <<= b;
+   a >>= b;
+*/
+nodrdasnop(parent)
+  struct Node* parent;
+{
+  struct Node* node;
+  struct Node* left;
+  
+  node = nodmk(NODE_TYPE_ASNOP, parent);
+  left = nodmk(NODE_TYPE_SYMBOL, node);
+  left->text = tokcopys();
+
+  read();
+  
+  switch(token)
+  {
+    case '=':
+    {
+      node->sub_type = ASNOP_COPY;
+      nodrdasnopr(node);
+    }
+    break;
+    case '+':
+    {
+      read();
+      if (token == '+')
+      {
+        node->sub_type = ASNOP_INC;
+      }
+      else if (token == '=')
+      {
+        node->sub_type = ASNOP_ADD;
+        nodrdasnopr(node);
+      }
+      else
+      {
+        panic("Unknown +? token");
+      }
+    }
+    break;
+    case '-':
+    {
+      read();
+      if (token == '-')
+      {
+        node->sub_type = ASNOP_DEC;
+      }
+      else if (token == '=')
+      {
+        node->sub_type = ASNOP_SUB;
+        nodrdasnopr(node);
+      }
+      else
+      {
+        panic("Unknown -? token");
+      }
+    }
+    break;
+    case '/':
+    {
+      read_and_expect('=');
+      node->sub_type = ASNOP_DIV;
+      nodrdasnopr(node);
+    }
+    break;
+    case '*':
+    {
+      read_and_expect('=');
+      node->sub_type = ASNOP_MUL;
+      nodrdasnopr(node);
+    }
+    break;
+    case '%':
+    {
+      read_and_expect('=');
+      node->sub_type = ASNOP_MOD;
+      nodrdasnopr(node);
+    }
+    break;
+    case '^':
+    {
+      read_and_expect('=');
+      node->sub_type = ASNOP_XOR;
+      nodrdasnopr(node);
+    }
+    break;
+    case '|':
+    {
+      read_and_expect('|');
+      node->sub_type = ASNOP_XOR;
+      nodrdasnopr(node);
+    }
+    break;
+    case '&':
+    {
+      read_and_expect('&');
+      node->sub_type = ASNOP_AND;
+      nodrdasnopr(node);
+    }
+    break;
+    case '<':
+    {
+      read_and_expect('<');
+      read_and_expect('=');
+      node->sub_type = ASNOP_SHL;
+      nodrdasnopr(node);
+    }
+    break;
+    case '>':
+    {
+      read_and_expect('>');
+      read_and_expect('=');
+      node->sub_type = ASNOP_SHR;
+      nodrdasnopr(node);
+    }
+    break;
+    default:
+      printf("token=%c\n", token);
+      panic("Unknown asnop symbol");
+    break;
+  }
+
+  read_and_expect(';');
+
+}
+
 nodrdscope(parent)
   struct Node* parent;
 {
   extern int   token;
-  struct Node* node;
+  struct Node* scope;
   
-  node = nodmk(NODE_TYPE_SCOPE, parent);
+  scope = nodmk(NODE_TYPE_SCOPE, parent);
   expect('{');
   while(read() != 'X')
   {
@@ -292,9 +491,22 @@ nodrdscope(parent)
     if (token == '}')
       break;
     
-    if (token == 'n' && tokchecks("asm"))
+    /*
+      asm("assembly");
+      asnop
+    */
+    if (token == 'n')
     {
-      nodrdasm(node);
+      printf("%s\n", tokgets());
+      if (tokchecks("asm"))
+      {
+        nodrdasm(scope);
+      }
+      else
+      {
+        printf("asnop=%c\n", token);
+        nodrdasnop(scope);
+      }
       continue;
     }
   }
