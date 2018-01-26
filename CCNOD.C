@@ -873,30 +873,21 @@ nodrdstruct()
   node = nodmkctype(struct_name, 0);
   node->flags |= NODE_FLAGS_TYPE_FLAGS_STRUCTUNION;
 
-  printf("name = %s", node->text);
-  printf("@@1!\n");
   read_and_expect('{');
-  printf("@@2!\n");
   read();
 
   while(TRUE)
   {
     if (token == '};')
       break;
-    printf("struct.1\n");
     expect('n');
-    printf("struct.2\n");
     nodrdtypedecl(node, 0);
-    printf("struct.3\n");
     expect(';');
-    printf("struct.4\n");
     read();
   }
   
-    printf("struct.5\n");
   expect('};');
   
-    printf("struct.6\n");
   /* calculate struct size */
   var = node->first;
   while(var != 0)
@@ -925,19 +916,18 @@ nodrdunion()
 
   while(TRUE)
   {
-    if (token == '}')
+    if (token == '};')
       break;
-    printf("union.1\n");
     expect('n');
-    printf("union.2\n");
     nodrdtypedecl(node, 0);
     expect(';');
     read();
   }
-
-  expect('}');
-  read_and_expect(';');
-
+  
+  expect('};');
+  
+  /* calculate struct size */
+  var = node->first;
   /* calculate union size. The largest size */
   var = node->first;
   while(var != 0)

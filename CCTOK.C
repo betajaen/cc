@@ -225,7 +225,7 @@ tokreads()
   tstr[i] = '\0';
   tstrlen = i;
 
-  return TOKEN_STRING;
+  return(TOKEN_STRING);
 }
 
 /* reset token */
@@ -249,16 +249,16 @@ peek(wanting)
   {
     if (tch == wanting)
     {
-      return TRUE;
+      return(TRUE);
     }
     else
     {
       fseek(tfile, -1, SEEK_CUR);
       tch = oldtch;
-      return FALSE;
+      return(FALSE);
     }
   }
-  return FALSE;
+  return(FALSE);
 }
 
 /* read token */
@@ -292,7 +292,6 @@ tokread()
 
   switch(tch)
   {
-    /* number */
     case '0':
     case '1':
     case '2':
@@ -312,67 +311,67 @@ tokread()
     case ';':
     case ',':
     case '#':
-      return tch;
+      return(tch);
     case '}':
-      return peek(';') ? '};' : '}';
+      return(peek(';') ? '};' : '}');
     case '&':
     {
       if (peek('&'))
-        return '&&';
+        return('&&');
       if (tchpeek == '=')
-        return '&=';
-      return '&';
+        return('&=');
+      return('&');
     }
     case '|':
     {
       if (peek('|'))
-        return '||';
+        return('||');
       if (tchpeek == '=')
-        return '|=';
-      return '|';
+        return('|=');
+      return('|');
     }
     case '^':
     {
       if (peek('='))
-        return '^=';
-      return '^';
+        return('^=');
+      return('^');
     }
     case '.':
       return(tch);
     case '<':
-      return peek('<') ? '<<' : '<';
+      return(peek('<') ? '<<' : '<');
     case '>':
-      return peek('>') ? '>>' : '>';
+      return(peek('>') ? '>>' : '>');
     case '=':
-      return peek('=') ? '==' : '=';
+      return(peek('=') ? '==' : '=');
     case '+':
     {
       if (peek('='))
       {
-        return '+=';
+        return('+=');
       }
       else
       {
-        if (tch == '+')
-          return '++';
-        return '+';
+        if (tchpeek == '+')
+          return('++');
+        return('+');
       }
     }
     case '-':
     {
       if (peek('='))
-        return '-=';
+        return('-=');
       else
       {
-        if (tch == '-')
-          return '--';
-        return '-';
+        if (tchpeek == '-')
+          return('--');
+        return('-');
       }
     }
     case '*':
-      return peek('=') ? '*=' : '*';
+      return(peek('=') ? '*=' : '*');
     case '/':
-      return peek('=') ? '/=' : '/';
+      return(peek('=') ? '/=' : '/');
     case '\'':
       return(tokreadl());
     case '\"':
@@ -411,7 +410,7 @@ tokchecks(s)
   char* s;
 {
   extern char tstr[256];
-  return strcmp(s, tstr) == 0;
+  return(strcmp(s, tstr) == 0);
 }
 
 /* copy and return token string */
