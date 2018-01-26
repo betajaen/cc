@@ -2,60 +2,80 @@
   cc -- C Compiler for DX8A Computer
 */
 
-#define NODE_TYPE_NONE            0
-#define NODE_TYPE_FILE            1
-#define NODE_TYPE_EOF             2
-#define NODE_TYPE_SYMBOL          3
-#define NODE_TYPE_FUNCTION        4
-#define NODE_TYPE_SCOPE           5
-#define NODE_TYPE_NUMBER          6
-#define NODE_TYPE_ASSEMBLY        7
-#define NODE_TYPE_WHILE           8
-#define NODE_TYPE_RETURN          9
-#define NODE_TYPE_BREAK           10
-#define NODE_TYPE_STRING          11
-#define NODE_TYPE_ASNOP           12
-#define NODE_TYPE_TYPEDECL        13
-#define NODE_TYPE_CTYPE           14
-#define NODE_TYPE_CTYPES          15
-#define NODE_TYPE_SYMBOLS         16
-#define NODE_TYPE_STRUCT          17
-#define NODE_TYPE_ARGUMENTS       18
-#define NODE_TYPE_ARGUMENT        19
+#define NODE_TYPE_NONE                          0
+#define NODE_TYPE_FILE                          1
+#define NODE_TYPE_EOF                           2
+#define NODE_TYPE_SYMBOL                        3
+#define NODE_TYPE_FUNCTION                      4
+#define NODE_TYPE_SCOPE                         5
+#define NODE_TYPE_NUMBER                        6
+#define NODE_TYPE_ASSEMBLY                      7
+#define NODE_TYPE_WHILE                         8
+#define NODE_TYPE_RETURN                        9
+#define NODE_TYPE_BREAK                         10
+#define NODE_TYPE_STRING                        11
+#define NODE_TYPE_ASNOP                         12
+#define NODE_TYPE_TYPEDECL                      13
+#define NODE_TYPE_CTYPE                         14
+#define NODE_TYPE_CTYPES                        15
+#define NODE_TYPE_SYMBOLS                       16
+#define NODE_TYPE_STRUCT                        17
+#define NODE_TYPE_UNION                         18
+#define NODE_TYPE_ARGUMENT_LIST                 19
+#define NODE_TYPE_ARGUMENT                      20
+#define NODE_TYPE_REGISTER                      21
 
-#define SCOPE_TYPE_FUNCTION       0
-#define SCOPE_TYPE_IF             1
-#define SCOPE_TYPE_WHILE          2
+#define SCOPE_TYPE_FUNCTION                     0
+#define SCOPE_TYPE_IF                           1
+#define SCOPE_TYPE_WHILE                        2
 
-#define ASNOP_COPY                0 /* a =  b; */
-#define ASNOP_ADD                 1 /* a += b; */
-#define ASNOP_SUB                 2 /* a -= b; */
-#define ASNOP_MUL                 3 /* a *= b; */
-#define ASNOP_DIV                 4 /* a /= b; */
-#define ASNOP_MOD                 5 /* a %= b; */
-#define ASNOP_XOR                 6 /* a ^= b; */
-#define ASNOP_OR                  7 /* a |= b; */
-#define ASNOP_AND                 8 /* a &= b; */
-#define ASNOP_INC                 9 /* a ++;   */
-#define ASNOP_DEC                10 /* a --;   */
-#define ASNOP_SHL                11 /* a <<=   */
-#define ASNOP_SHR                12 /* a >>=   */
+#define ASNOP_COPY                              0 /* a =  b; */
+#define ASNOP_ADD                               1 /* a += b; */
+#define ASNOP_SUB                               2 /* a -= b; */
+#define ASNOP_MUL                               3 /* a *= b; */
+#define ASNOP_DIV                               4 /* a /= b; */
+#define ASNOP_MOD                               5 /* a %= b; */
+#define ASNOP_XOR                               6 /* a ^= b; */
+#define ASNOP_OR                                7 /* a |= b; */
+#define ASNOP_AND                               8 /* a &= b; */
+#define ASNOP_INC                               9 /* a ++;   */
+#define ASNOP_DEC                              10 /* a --;   */
+#define ASNOP_SHL                              11 /* a <<=   */
+#define ASNOP_SHR                              12 /* a >>=   */
 
-#define KEYWORD_TYPE_INT          0
-#define KEYWORD_TYPE_CHAR         1
-#define KEYWORD_TYPE_SIZE         2
+#define KEYWORD_TYPE_INT                       0
+#define KEYWORD_TYPE_CHAR                      1
+#define KEYWORD_TYPE_SIZE                      2
 
-#define CONSTANT_FALSE     0
-#define CONSTANT_TRUE      1
-#define CONSTANT_NO        2
-#define CONSTANT_YES       3
-#define CONSTANT_SIZE      4
+#define CONSTANT_FALSE                         0
+#define CONSTANT_TRUE                          1
+#define CONSTANT_NO                            2
+#define CONSTANT_YES                           3
+#define CONSTANT_SIZE                          4
 
-#define NODE_FLAGS_FUNCTION_FLAGS_DECLARED    1
+#define REGISTER_R0                            0
+#define REGISTER_R1                            1
+#define REGISTER_R2                            2
+#define REGISTER_R3                            3
+#define REGISTER_R4                            4
+#define REGISTER_R5                            5
+#define REGISTER_R6                            6
+#define REGISTER_R7                            7
+#define REGISTER_R8                            8
+#define REGISTER_R9                            9
+#define REGISTER_R10                           10
+#define REGISTER_R11                           11
+#define REGISTER_R12                           12
+#define REGISTER_R13                           13
+#define REGISTER_R14                           14
+#define REGISTER_R15                           15
+
+
+#define NODE_FLAGS_FUNCTION_FLAGS_DECLARED     1
 #define NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL    2
 #define NODE_FLAGS_FUNCTION_FLAGS_SCOPE        4
 #define NODE_FLAGS_FUNCTION_FLAGS_ARGS         8
-#define NODE_FLAGS_TYPE_FLAGS_STRUCT           16
+#define NODE_FLAGS_TYPE_FLAGS_STRUCTUNION      16
 #define NODE_FLAGS_TYPEDECL_FLAGS_EXTERN       32
 #define NODE_FLAGS_TYPEDECL_FLAGS_POINTER      64
 #define NODE_FLAGS_TYPEDECL_FLAGS_INTEGERISIZE 128
@@ -74,17 +94,6 @@ extern char* tokcopys();
 extern tokcopy2();
 extern int tokchecks();
 
-char  nstra[256];
-char  nstrb[256];
-
-struct Keyword
-{
-  char* text;
-  int   id;
-};
-
-struct Keyword keywords[KEYWORD_TYPE_SIZE];
-
 struct Node
 {
   int          type;
@@ -98,7 +107,8 @@ struct Node
   struct Node* last;
   struct Node* ctype;
   struct Node* cond;
-  int          integer;
+  short        integer;
+  short        offset;
   int          flags;
 };
 
@@ -186,12 +196,13 @@ struct Node* nodmk(type, parent)
   node->integer   = 0;
   node->cond      = 0;
   node->flags     = 0;
+  node->offset    = 0;
 
   nodadd(parent, node);
   return(node);
 }
 
-nodmkctype(name, size)
+struct Node* nodmkctype(name, size)
  char* name;
  int size;
 {
@@ -199,6 +210,7 @@ nodmkctype(name, size)
   node = nodmk(NODE_TYPE_CTYPE, ctypes);
   node->text = name;
   node->integer = size;
+  return node;
 }
 
 
@@ -278,6 +290,9 @@ nodprint(node, depth)
     case NODE_TYPE_NUMBER:
       printf("+ %i", node->integer);
     break;
+    case NODE_TYPE_REGISTER:
+      printf("+ R%i", node->integer);
+    break;
     case NODE_TYPE_ASSEMBLY:
       printf("+ ASM %s", node->text);
     break;
@@ -305,14 +320,14 @@ nodprint(node, depth)
     case NODE_TYPE_SYMBOLS:
       printf("+ CSymbols");
     break;
-    case NODE_TYPE_ARGUMENTS:
-      printf("+ Arguments");
+    case NODE_TYPE_ARGUMENT_LIST:
+      printf("+ Argument List");
     break;
     case NODE_TYPE_ARGUMENT:
       printf("+ Argument '%s'", node->text);
     break;
     case NODE_TYPE_ASNOP:
-      printf("+ ASNOP ");
+      printf("+ ");
       switch(node->sub_type)
       {
         case ASNOP_COPY: printf("=") ; break;
@@ -387,6 +402,17 @@ nodprint(node, depth)
     }
     printf("+ Is Function Decl: TRUE\n");
   }
+  
+  if (node->offset != 0)
+  {
+    i = 0;
+    while(i < depth)
+    {
+      printf("-");
+      i++;
+    }
+    printf("+ Offset: %i\n", node->offset);
+  }
 
   child = node->first;
   while(child != 0)
@@ -395,43 +421,6 @@ nodprint(node, depth)
     child = child->next;
   }
 
-}
-
-nodtoktokw()
-{
-  char* n0;
-  int   i = 0;
-
-  n0 = tokgetn();
-  
-  while(i < KEYWORD_TYPE_SIZE)
-  {
-    char* n1;
-    
-    n1 = keywords[i].text;
-
-    if (strcmp(n0, n1) == 0)
-    {
-      return i;
-    }
-
-    i++;
-  }
-
-  return(KEYWORD_TYPE_SIZE);
-}
-
-/* node keyword */
-nodkw(name, id)
-  char* name;
-  int id;
-{
-  extern struct Keyword keywords[];
-  struct Keyword keyword;
-  keyword.text = name;
-  keyword.id   = id;
-
-  keywords[id] = keyword;
 }
 
 /* node integer symbol */
@@ -450,11 +439,29 @@ nodsymi(name, id, val)
   value->ctype   = nodfindctype("int");
 }
 
+/* node register symbol */
+nodsymr(name, id, val)
+  char* name;
+  int id;
+  int val;
+{
+  struct Node* node;
+  node = nodmk(NODE_TYPE_SYMBOL, csymbols);
+  node->text = name;
+  
+  struct Node* value;
+  value = nodmk(NODE_TYPE_REGISTER, node);
+  value->integer = val;
+  value->ctype   = nodfindctype("register");
+}
+
+/* node read assembly */
 nodrdasm(parent)
   struct Node* parent;
 {
   struct Node* node;
 
+  /* asm("instructions"); */
   expect_name("asm");
   read_and_expect('(');
   read_and_expect('s');
@@ -466,6 +473,7 @@ nodrdasm(parent)
   read_and_expect(';');
 }
 
+/* node read assign operator right param */
 nodrdasnopr(parent)
   struct Node* parent;
 {
@@ -488,6 +496,7 @@ nodrdasnopr(parent)
   }
 }
 
+/* node read while */
 nodrdwhile(parent)
   struct Node* parent;
 {
@@ -534,6 +543,8 @@ nodrdwhile(parent)
 }
 
 /*
+   node read assign nop
+   
    a =  b;
    a += b;
    a -= b;
@@ -672,7 +683,9 @@ nodrdasnop(parent)
 
 }
 
-/* nod read typedecl. if args is not 0, it will read into an existing node in args, and add to the argument. */
+/* nod read typedecl. 
+   if args is not 0, it will read into an existing node in args, and add to the argument.
+*/
 nodrdtypedecl(scope, args)
   struct Node* scope;
   struct Node* args;
@@ -688,6 +701,8 @@ nodrdtypedecl(scope, args)
   is_extern  = FALSE;
 
   node       = nodmk(NODE_TYPE_TYPEDECL, scope);
+
+  expect('n');
 
   /*
     int  x;
@@ -709,7 +724,7 @@ nodrdtypedecl(scope, args)
     read();
   }
 
-  if (strcmp(type_name, "struct") == 0)
+  if (strcmp(type_name, "struct") == 0 || strcmp(type_name, "union") == 0)
   {
     is_struct = TRUE;
     read();
@@ -723,7 +738,7 @@ nodrdtypedecl(scope, args)
     panic("Unknown type!");
   }
   
-  if (is_struct && (node->ctype->flags & NODE_FLAGS_TYPE_FLAGS_STRUCT) == 0)
+  if (is_struct && (node->ctype->flags & NODE_FLAGS_TYPE_FLAGS_STRUCTUNION) == 0)
   {
     panic("Not a struct");
   }
@@ -802,6 +817,9 @@ nodrdtypedecl(scope, args)
   expect(';');
 }
 
+/*  node read arguments 
+    (x1, x2, ...)
+*/
 nodrdargs(parent)
   struct Node* parent;
 {
@@ -809,7 +827,7 @@ nodrdargs(parent)
   struct Node* arg;
   char   expecting;
 
-  node = nodmk(NODE_TYPE_ARGUMENTS, parent);
+  node = nodmk(NODE_TYPE_ARGUMENT_LIST, parent);
 
   expecting = 'n';
 
@@ -846,11 +864,15 @@ nodrdargs(parent)
   }
 }
 
+/*
+   int  x1;
+   int* x2;
+*/
 nodrdargvars(parent)
   struct Node* parent;
 {
   struct Node* args;
-  args = nodfindtype(parent, NODE_TYPE_ARGUMENTS);
+  args = nodfindtype(parent, NODE_TYPE_ARGUMENT_LIST);
   printf("ARGS IS = %p\n", args);
   // @TODO.
   // Just a while loop of typedecls with a ;, until a {
@@ -872,6 +894,8 @@ nodrdargvars(parent)
   printf("ARGS END\n");
 }
 
+/*  node read scope
+*/
 nodrdscope(parent)
   struct Node* parent;
 {
@@ -885,14 +909,17 @@ nodrdscope(parent)
   type_decl = (parent->flags & NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL) != 0;
   while(read() != 'X')
   {
+    
     dont_expect('{');
-
+    
     if (token == '}')
       break;
     
     /*
       asm("assembly");
       asnop
+      while(TRUE)  { }
+      while(FALSE) { }
     */
     if (token == 'n')
     {
@@ -925,6 +952,15 @@ nodrdscope(parent)
         nodrdtypedecl(scope, 0);
         continue;
       }
+      else if (tokchecks("short"))
+      {
+        if (type_decl == 1)
+        {
+          panic("type declared after statements!");
+        }
+        nodrdtypedecl(scope, 0);
+        continue;
+      }
       else if (tokchecks("char"))
       {
         if (type_decl == 1)
@@ -935,6 +971,15 @@ nodrdscope(parent)
         continue;
       }
       else if (tokchecks("struct"))
+      {
+        if (type_decl == 1)
+        {
+          panic("type declared after statements!");
+        }
+        nodrdtypedecl(scope, 0);
+        continue;
+      }
+      else if (tokchecks("union"))
       {
         if (type_decl == 1)
         {
@@ -966,6 +1011,85 @@ nodrdscope(parent)
   }
 }
 
+nodrdstruct()
+{
+  struct Node* node;
+  struct Node* var;
+  
+  expect_name("struct");
+
+  read_and_expect('n');
+  char* struct_name = tokcopys();
+
+  node = nodmkctype(struct_name, 0);
+  node->flags |= NODE_FLAGS_TYPE_FLAGS_STRUCTUNION;
+  read_and_expect('{');
+  read();
+
+  while(TRUE)
+  {
+    if (token == '}')
+      break;
+    printf("struct.1\n");
+    expect('n');
+    nodrdtypedecl(node, 0);
+    expect(';');
+    read();
+  }
+
+  expect('}');
+  read_and_expect(';');
+
+  /* calculate struct size */
+  var = node->first;
+  while(var != 0)
+  {
+    var->offset = node->integer;  /* offset */
+    node->integer += var->ctype->integer; /* struct size */
+    var = var->next;
+  }
+
+}
+
+nodrdunion()
+{
+  struct Node* node;
+  struct Node* var;
+  
+  expect_name("union");
+
+  read_and_expect('n');
+  char* struct_name = tokcopys();
+
+  node = nodmkctype(struct_name, 0);
+  node->flags |= NODE_FLAGS_TYPE_FLAGS_STRUCTUNION;
+  read_and_expect('{');
+  read();
+
+  while(TRUE)
+  {
+    if (token == '}')
+      break;
+    printf("struct.1\n");
+    expect('n');
+    nodrdtypedecl(node, 0);
+    expect(';');
+    read();
+  }
+
+  expect('}');
+  read_and_expect(';');
+
+  /* calculate union size. The largest size */
+  var = node->first;
+  while(var != 0)
+  {
+    if (node->integer < var->ctype->integer)
+      node->integer = var->ctype->integer;
+    var = var->next;
+  }
+
+}
 
 nodrdfun()
 {
@@ -984,7 +1108,8 @@ nodrdfun()
         Scope
       }
   */
-  struct Node* node = nodmk(NODE_TYPE_FUNCTION, cexterns);
+  struct Node* node;
+  node = nodmk(NODE_TYPE_FUNCTION, cexterns);
   node->text = tokcopys();
   
   node->flags |= NODE_FLAGS_FUNCTION_FLAGS_DECLARED;
@@ -995,9 +1120,7 @@ nodrdfun()
 
   if (token == 'n')
   {
-    printf("x1\n");
     nodrdargs(node);
-    printf("x2\n");
   }
 
   expect(')');
@@ -1019,12 +1142,16 @@ nodrdfun()
 /* read declaration from global scope*/
 nodrdglobdecl()
 {
-  int kw;
-  kw = nodtoktokw();
-
-  if (kw != KEYWORD_TYPE_SIZE)
+  if (tokchecks("struct"))
   {
-    panic("Unexpected keyword");
+    nodrdstruct();
+    return;
+  }
+  
+  if (tokchecks("union"))
+  {
+    nodrdunion();
+    return;
   }
 
   // If it's not a keyword, then it's probably a function.
@@ -1033,12 +1160,11 @@ nodrdglobdecl()
 
 nodinit()
 {
-  nodkw("int", KEYWORD_TYPE_INT);
-  nodkw("char", KEYWORD_TYPE_CHAR);
-  
   ctypes = nodmk(NODE_TYPE_CTYPES, 0);
+  nodmkctype("register", 2);
   nodmkctype("char", 1);
   nodmkctype("int",  2);
+  nodmkctype("short",  2);
   
   csymbols = nodmk(NODE_TYPE_SYMBOLS, 0);
 
@@ -1046,10 +1172,26 @@ nodinit()
   nodsymi("TRUE", CONSTANT_TRUE, 1);
   nodsymi("NO", CONSTANT_NO, 0);
   nodsymi("YES", CONSTANT_YES, 1);
+
+  nodsymr("R0",  REGISTER_R0,  0);
+  nodsymr("R1",  REGISTER_R1,  1);
+  nodsymr("R2",  REGISTER_R2,  2);
+  nodsymr("R3",  REGISTER_R3,  3);
+  nodsymr("R4",  REGISTER_R4,  4);
+  nodsymr("R5",  REGISTER_R5,  5);
+  nodsymr("R6",  REGISTER_R6,  6);
+  nodsymr("R7",  REGISTER_R7,  7);
+  nodsymr("R8",  REGISTER_R8,  8);
+  nodsymr("R9",  REGISTER_R9,  9);
+  nodsymr("R10", REGISTER_R10, 10);
+  nodsymr("R11", REGISTER_R11, 11);
+  nodsymr("R12", REGISTER_R12, 12);
+  nodsymr("R13", REGISTER_R13, 13);
+  nodsymr("R14", REGISTER_R14, 14);
+  nodsymr("R15", REGISTER_R15, 15);
   
   cexterns = nodmk(NODE_TYPE_FILE, 0);
   
-
 }
 
 nodstop()
@@ -1068,8 +1210,8 @@ nodfile()
     if (token == 'X')
       break;
 
-    // name
     // main() {}
+    // struct name { type-decl-list };
     if (token == 'n')
     {
       nodrdglobdecl();
@@ -1080,7 +1222,6 @@ nodfile()
   nodprint(ctypes, 0);
   nodprint(csymbols, 0);
   nodprint(cexterns, 0);
-
 }
 
 expect(ch)
