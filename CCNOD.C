@@ -49,30 +49,6 @@
 #define KEYWORD_TYPE_CHAR                      1
 #define KEYWORD_TYPE_SIZE                      2
 
-#define CONSTANT_FALSE                         0
-#define CONSTANT_TRUE                          1
-#define CONSTANT_NO                            2
-#define CONSTANT_YES                           3
-#define CONSTANT_SIZE                          4
-
-#define REGISTER_R0                            0
-#define REGISTER_R1                            1
-#define REGISTER_R2                            2
-#define REGISTER_R3                            3
-#define REGISTER_R4                            4
-#define REGISTER_R5                            5
-#define REGISTER_R6                            6
-#define REGISTER_R7                            7
-#define REGISTER_R8                            8
-#define REGISTER_R9                            9
-#define REGISTER_R10                           10
-#define REGISTER_R11                           11
-#define REGISTER_R12                           12
-#define REGISTER_R13                           13
-#define REGISTER_R14                           14
-#define REGISTER_R15                           15
-
-
 #define NODE_FLAGS_FUNCTION_FLAGS_DECLARED     1
 #define NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL    2
 #define NODE_FLAGS_FUNCTION_FLAGS_SCOPE        4
@@ -88,8 +64,6 @@ extern read();
 extern expect();
 extern expect_name();
 extern read_and_expect();
-extern dont_expect();
-extern read_and_dont_expect();
 extern char* tokgetn();
 extern int tokread();
 extern char* tokcopys();
@@ -254,189 +228,9 @@ nodfindcsym(name)
   return 0;
 }
 
-nodprint(node, depth)
-  struct Node* node;
-  int depth;
-{
-  int i;
-  struct Node* child;
-
-  if (depth == 8)
-    return;
-  
-  i = 0;
-  while(i < depth)
-  {
-    printf("-");
-    i++;
-  }
-
-  switch(node->type)
-  {
-    case NODE_TYPE_NONE:
-      printf("+ none");
-    break;
-    case NODE_TYPE_FILE:
-      printf("+ File");
-    break;
-    case NODE_TYPE_EOF:
-      printf("+ EOF");
-    break;
-    case NODE_TYPE_SYMBOL:
-      printf("+ %s", node->text);
-    break;
-    case NODE_TYPE_POINTERTO:
-      printf("+ %s->", node->text);
-    break;
-    case NODE_TYPE_ARRAYINDEX:
-      printf("+ %s[]", node->text);
-    break;
-    case NODE_TYPE_FUNCTION:
-      printf("+ %s()", node->text);
-    break;
-    case NODE_TYPE_SCOPE:
-      printf("+ {}");
-    break;
-    case NODE_TYPE_NUMBER:
-      printf("+ %i", node->integer);
-    break;
-    case NODE_TYPE_REGISTER:
-      printf("+ R%i", node->integer);
-    break;
-    case NODE_TYPE_ASSEMBLY:
-      printf("+ ASM %s", node->text);
-    break;
-    case NODE_TYPE_WHILE:
-      printf("+ while");
-    break;
-    case NODE_TYPE_RETURN:
-      printf("+ return");
-    break;
-    case NODE_TYPE_BREAK:
-      printf("+ break");
-    break;
-    case NODE_TYPE_STRING:
-      printf("+ '%s'", node->text);
-    break;
-    case NODE_TYPE_CTYPE:
-      printf("+ Type '%s', Size=%i", node->text, node->integer);
-    break;
-    case NODE_TYPE_CTYPES:
-      printf("+ CTypes");
-    break;
-    case NODE_TYPE_TYPEDECL:
-      printf("+ Type Decl '%s'", node->text);
-    break;
-    case NODE_TYPE_SYMBOLS:
-      printf("+ CSymbols");
-    break;
-    case NODE_TYPE_ARGUMENT_LIST:
-      printf("+ Argument List");
-    break;
-    case NODE_TYPE_ARGUMENT:
-      printf("+ Argument '%s'", node->text);
-    break;
-    case NODE_TYPE_ASNOP:
-      printf("+ ");
-      switch(node->sub_type)
-      {
-        case ASNOP_COPY: printf("=") ; break;
-        case ASNOP_ADD:  printf("+="); break;
-        case ASNOP_SUB:  printf("-="); break;
-        case ASNOP_MUL:  printf("*="); break;
-        case ASNOP_DIV:  printf("/="); break;
-        case ASNOP_MOD:  printf("%="); break;
-        case ASNOP_XOR:  printf("^="); break;
-        case ASNOP_OR:   printf("|="); break;
-        case ASNOP_AND:  printf("&="); break;
-        case ASNOP_INC:  printf("++"); break;
-        case ASNOP_DEC:  printf("--"); break;
-        case ASNOP_SHL:  printf("<<="); break;
-        case ASNOP_SHR:  printf(">>="); break;
-      }
-    break;
-  }
-  
-  printf("\n");
-  
-  if (node->ctype != 0)
-  {
-    nodprint(node->ctype, depth + 1);
-  }
-  
-  if (node->cond != 0)
-  {
-    nodprint(node->cond, depth + 1);
-  }
-
-  if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_POINTER) != 0)
-  {
-    i = 0;
-    while(i < depth)
-    {
-      printf("-");
-      i++;
-    }
-    printf("+ Is Pointer: TRUE\n");
-  }
-  
-  if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_EXTERN) != 0)
-  {
-    i = 0;
-    while(i < depth)
-    {
-      printf("-");
-      i++;
-    }
-    printf("+ Is Extern: TRUE\n");
-  }
-
-  if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_INTEGERISIZE) != 0)
-  {
-    i = 0;
-    while(i < depth)
-    {
-      printf("-");
-      i++;
-    }
-    printf("+ Array Size: %i\n", node->integer);
-  }
-  
-  if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_FUNCTION) != 0)
-  {
-    i = 0;
-    while(i < depth)
-    {
-      printf("-");
-      i++;
-    }
-    printf("+ Is Function Decl: TRUE\n");
-  }
-  
-  if (node->offset != 0)
-  {
-    i = 0;
-    while(i < depth)
-    {
-      printf("-");
-      i++;
-    }
-    printf("+ Offset: %i\n", node->offset);
-  }
-
-  child = node->first;
-  while(child != 0)
-  {
-    nodprint(child, depth + 1);
-    child = child->next;
-  }
-
-}
-
 /* node integer symbol */
-nodsymi(name, id, val)
+nodsymi(name, val)
   char* name;
-  int id;
   int val;
 {
   struct Node* node;
@@ -450,9 +244,8 @@ nodsymi(name, id, val)
 }
 
 /* node register symbol */
-nodsymr(name, id, val)
+nodsymr(name, val)
   char* name;
-  int id;
   int val;
 {
   struct Node* node;
@@ -569,7 +362,7 @@ struct Node* nodrdlvalue(parent)
 
   read();
 
-  if (token == '->')
+  if (token == '->' || token == '.')
   {
     read();
     expect('n');
@@ -578,16 +371,6 @@ struct Node* nodrdlvalue(parent)
     primary->text = name;
 
     identifier = nodrdlvalue(primary);
-  }
-  else if (token == '.')
-  {
-    read();
-    expect('n');
-
-    primary = nodmk(NODE_TYPE_POINTERTO, parent);
-    primary->text = name;
-    
-    nodrdlvalue(primary);
   }
   else if (token == '[')
   {
@@ -665,94 +448,72 @@ nodrdasnop(parent)
       nodrdasnopr(node);
     }
     break;
-    case '+':
+    case '++':
     {
-      read();
-      if (token == '+')
-      {
-        node->sub_type = ASNOP_INC;
-      }
-      else if (token == '=')
-      {
-        node->sub_type = ASNOP_ADD;
-        nodrdasnopr(node);
-      }
-      else
-      {
-        panic("Unknown +? token");
-      }
+      node->sub_type = ASNOP_INC;
     }
     break;
-    case '-':
+    case '+=':
     {
-      read();
-      if (token == '-')
-      {
-        node->sub_type = ASNOP_DEC;
-      }
-      else if (token == '=')
-      {
-        node->sub_type = ASNOP_SUB;
-        nodrdasnopr(node);
-      }
-      else
-      {
-        panic("Unknown -? token");
-      }
+      node->sub_type = ASNOP_ADD;
+      nodrdasnopr(node);
     }
     break;
-    case '/':
+    case '-=':
     {
-      read_and_expect('=');
+      node->sub_type = ASNOP_SUB;
+      nodrdasnopr(node);
+    }
+    break;
+    case '--':
+    {
+      node->sub_type = ASNOP_DEC;
+    }
+    break;
+    case '/=':
+    {
       node->sub_type = ASNOP_DIV;
       nodrdasnopr(node);
     }
     break;
-    case '*':
+    case '*=':
     {
-      read_and_expect('=');
       node->sub_type = ASNOP_MUL;
       nodrdasnopr(node);
     }
     break;
-    case '%':
+    case '%=':
     {
-      read_and_expect('=');
       node->sub_type = ASNOP_MOD;
       nodrdasnopr(node);
     }
     break;
-    case '^':
+    case '^=':
     {
-      read_and_expect('=');
       node->sub_type = ASNOP_XOR;
       nodrdasnopr(node);
     }
     break;
-    case '|':
+    case '|=':
     {
-      read_and_expect('|');
       node->sub_type = ASNOP_XOR;
       nodrdasnopr(node);
     }
     break;
-    case '&':
+    case '&=':
     {
-      read_and_expect('&');
       node->sub_type = ASNOP_AND;
       nodrdasnopr(node);
     }
     break;
-    case '<<':
+    case '<<=':
     {
-      read_and_expect('=');
       node->sub_type = ASNOP_SHL;
       nodrdasnopr(node);
     }
     break;
-    case '>>':
+    case '>>=':
     {
-      read_and_expect('=');
       node->sub_type = ASNOP_SHR;
       nodrdasnopr(node);
     }
@@ -993,12 +754,16 @@ nodrdscope(parent)
   type_decl = (parent->flags & NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL) != 0;
   while(read() != 'X')
   {
-    
-    dont_expect('{');
-    
+    if (token == '{')
+    {
+      panic("Extra { in scope!");
+    }
+
     if (token == '}')
+    {
       break;
-    
+    }
+
     /*
       asm("assembly");
       asnop
@@ -1107,23 +872,31 @@ nodrdstruct()
 
   node = nodmkctype(struct_name, 0);
   node->flags |= NODE_FLAGS_TYPE_FLAGS_STRUCTUNION;
+
+  printf("name = %s", node->text);
+  printf("@@1!\n");
   read_and_expect('{');
+  printf("@@2!\n");
   read();
 
   while(TRUE)
   {
-    if (token == '}')
+    if (token == '};')
       break;
     printf("struct.1\n");
     expect('n');
+    printf("struct.2\n");
     nodrdtypedecl(node, 0);
+    printf("struct.3\n");
     expect(';');
+    printf("struct.4\n");
     read();
   }
-
-  expect('}');
-  read_and_expect(';');
-
+  
+    printf("struct.5\n");
+  expect('};');
+  
+    printf("struct.6\n");
   /* calculate struct size */
   var = node->first;
   while(var != 0)
@@ -1154,8 +927,9 @@ nodrdunion()
   {
     if (token == '}')
       break;
-    printf("struct.1\n");
+    printf("union.1\n");
     expect('n');
+    printf("union.2\n");
     nodrdtypedecl(node, 0);
     expect(';');
     read();
@@ -1252,27 +1026,27 @@ nodinit()
   
   csymbols = nodmk(NODE_TYPE_SYMBOLS, 0);
 
-  nodsymi("FALSE", CONSTANT_FALSE, 0);
-  nodsymi("TRUE", CONSTANT_TRUE, 1);
-  nodsymi("NO", CONSTANT_NO, 0);
-  nodsymi("YES", CONSTANT_YES, 1);
+  nodsymi("FALSE",0);
+  nodsymi("TRUE", 1);
+  nodsymi("NO",   0);
+  nodsymi("YES",  1);
 
-  nodsymr("R0",  REGISTER_R0,  0);
-  nodsymr("R1",  REGISTER_R1,  1);
-  nodsymr("R2",  REGISTER_R2,  2);
-  nodsymr("R3",  REGISTER_R3,  3);
-  nodsymr("R4",  REGISTER_R4,  4);
-  nodsymr("R5",  REGISTER_R5,  5);
-  nodsymr("R6",  REGISTER_R6,  6);
-  nodsymr("R7",  REGISTER_R7,  7);
-  nodsymr("R8",  REGISTER_R8,  8);
-  nodsymr("R9",  REGISTER_R9,  9);
-  nodsymr("R10", REGISTER_R10, 10);
-  nodsymr("R11", REGISTER_R11, 11);
-  nodsymr("R12", REGISTER_R12, 12);
-  nodsymr("R13", REGISTER_R13, 13);
-  nodsymr("R14", REGISTER_R14, 14);
-  nodsymr("R15", REGISTER_R15, 15);
+  nodsymr("R0", 0);
+  nodsymr("R1", 1);
+  nodsymr("R2", 2);
+  nodsymr("R3", 3);
+  nodsymr("R4", 4);
+  nodsymr("R5", 5);
+  nodsymr("R6", 6);
+  nodsymr("R7", 7);
+  nodsymr("R8", 8);
+  nodsymr("R9", 9);
+  nodsymr("R10",10);
+  nodsymr("R11",11);
+  nodsymr("R12",12);
+  nodsymr("R13",13);
+  nodsymr("R14",14);
+  nodsymr("R15",15);
   
   cexterns = nodmk(NODE_TYPE_FILE, 0);
   
@@ -1302,14 +1076,10 @@ nodfile()
       continue;
     }
   }
-
-  nodprint(ctypes, 0);
-  nodprint(csymbols, 0);
-  nodprint(cexterns, 0);
 }
 
 expect(ch)
-  char ch;
+  int ch;
 {
   extern int token;
   
@@ -1356,28 +1126,8 @@ read()
 }
 
 read_and_expect(ch)
-  char ch;
+  int ch;
 {
   read();
   expect(ch);
-}
-
-dont_expect(ch)
-  char ch;
-{
-  if (token == ch)
-  {
-    panic("Unwanted token. Got %c", ch);
-    if (token == 'n')
-    {
-      printf("n = %s", tokgetn());
-    }
-  }
-}
-
-read_and_dont_expect(ch)
-  char ch;
-{
-  read();
-  dont_expect(ch);
 }

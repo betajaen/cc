@@ -6,12 +6,6 @@ main(argc, argv)
   int argc;
   char** argv;
 {
-  extern int tokopen();
-  extern int tokclose();
-  extern int nodfile();
-  extern int nodinit();
-  extern int nodstop();
-
   if (argc == 1)
   {
     exit(1);
@@ -26,6 +20,8 @@ main(argc, argv)
   nodinit();
   nodfile();
   tokclose();
+  noddbg();
+  asm();
   nodstop();
 }
 

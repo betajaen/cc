@@ -4,11 +4,8 @@ struct Vector
   char y;
 };
 
-print_vector(vec)
-  struct Vector* vec;
+main()
 {
-  vec = 2;
-  vec->x = 5;
-  vec[3] = 7;
-  vec[vec->y[vec->x]] = 2;
+  struct Vector vec;
+  asm("set r0, 4");
 }

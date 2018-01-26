@@ -6,7 +6,9 @@
 #include "HEADERS/STDIO.H"
 
 #include "CCARY.C"
-#include "CCCLI.C"
 #include "CCTOK.C"
 #include "CCNOD.C"
 #include "CCASM.C"
+#include "CCDBG.C"
+
+#include "CCCLI.C"

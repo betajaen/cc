@@ -13,6 +13,7 @@
 FILE* tfile;
 int   teof;
 char  tch;
+char  tchpeek;
 char  tstr[256];
 int   tstrlen;
 int   tint;
@@ -237,7 +238,7 @@ tokrst()
   tint    = 0;
 }
 
-peekahead(wanting)
+peek(wanting)
   char wanting;
 {
   char oldtch;
@@ -289,87 +290,96 @@ tokread()
     return(TOKEN_NONE);
   }
 
-  /*
-    12345
-  */
-  if (tch >= '0' && tch <= '9')
-  {
-    return(tokreadi(tch));
-  }
-
-  /*
-     name12345
-  */
-  if (tokisname(tch) == TRUE)
-  {
-    return(tokreadn(tch));
-  }
-
-  /* 
-     'a' 
-     'ab'
-  */
-  if (tch == '\'')
-  {
-    return(tokreadl());
-  }
-
-  /*
-     "some text"
-  */
-  if (tch == '\"')
-  {
-    return(tokreads());
-  }
-
-  /* -> */
-  if (tch == '-')
-  {
-    if (peekahead('>'))
-    {
-      return '->';
-    }
-  }
-
-  /* >> */
-  if (tch == '>')
-  {
-    if (peekahead('>'))
-    {
-      return '>>';
-    }
-  }
-  
-  /* << */
-  if (tch == '<')
-  {
-    if (peekahead('<'))
-    {
-      return '<<';
-    }
-  }
-
-  /* syntax */
   switch(tch)
   {
+    /* number */
+    case '0':
+    case '1':
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+    case '8':
+    case '9':
+      return(tokreadi(tch));
     case '(':
     case ')':
     case '{':
-    case '}':
     case '[':
     case ']':
     case ';':
-    case '<':
-    case '>':
-    case '#':
-    case '=':
-    case '+':
-    case '-':
-    case '*':
-    case '/':
     case ',':
-    case '.':
+    case '#':
       return tch;
+    case '}':
+      return peek(';') ? '};' : '}';
+    case '&':
+    {
+      if (peek('&'))
+        return '&&';
+      if (tchpeek == '=')
+        return '&=';
+      return '&';
+    }
+    case '|':
+    {
+      if (peek('|'))
+        return '||';
+      if (tchpeek == '=')
+        return '|=';
+      return '|';
+    }
+    case '^':
+    {
+      if (peek('='))
+        return '^=';
+      return '^';
+    }
+    case '.':
+      return(tch);
+    case '<':
+      return peek('<') ? '<<' : '<';
+    case '>':
+      return peek('>') ? '>>' : '>';
+    case '=':
+      return peek('=') ? '==' : '=';
+    case '+':
+    {
+      if (peek('='))
+      {
+        return '+=';
+      }
+      else
+      {
+        if (tch == '+')
+          return '++';
+        return '+';
+      }
+    }
+    case '-':
+    {
+      if (peek('='))
+        return '-=';
+      else
+      {
+        if (tch == '-')
+          return '--';
+        return '-';
+      }
+    }
+    case '*':
+      return peek('=') ? '*=' : '*';
+    case '/':
+      return peek('=') ? '/=' : '/';
+    case '\'':
+      return(tokreadl());
+    case '\"':
+      return(tokreads());
+    break;
+    default:
+      return(tokreadn(tch));
   }
 
   return(TOKEN_NONE);
