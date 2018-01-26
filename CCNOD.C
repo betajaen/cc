@@ -20,6 +20,8 @@
 #define NODE_TYPE_CTYPES          15
 #define NODE_TYPE_SYMBOLS         16
 #define NODE_TYPE_STRUCT          17
+#define NODE_TYPE_ARGUMENTS       18
+#define NODE_TYPE_ARGUMENT        19
 
 #define SCOPE_TYPE_FUNCTION       0
 #define SCOPE_TYPE_IF             1
@@ -107,29 +109,11 @@ struct Node* csymbols;
 
 int token;
 
-struct Node* nodmk(type, parent)
-  int type;
-  struct Node* parent;
+nodadd(parent, node)
+ struct Node* parent;
+ struct Node* node;
 {
-  extern int nodeidx;
-  extern nodadd();
-
-  struct Node* node;
-  node = calloc(1, sizeof(struct Node));
-  node->type      = type;
-  node->sub_type  = 0;
-  node->symbol    = 0;
-  node->index     = nodeidx++;
-  node->text      = 0;
-  node->next      = 0;
-  node->prev      = 0;
-  node->first     = 0;
-  node->last      = 0;
-  node->ctype     = 0;
-  node->integer   = 0;
-  node->cond      = 0;
-  node->flags     = 0;
-
+  
   if (parent != 0)
   {
     if (parent->first == 0)
@@ -147,7 +131,63 @@ struct Node* nodmk(type, parent)
       parent->last = node;
     }
   }
+}
 
+nodfind(node, text)
+  struct Node* node;
+  char* text;
+{
+  struct Node* child;
+  child = node->first;
+  while(child != 0)
+  {
+    if (strcmp(text, child->text) == 0)
+    {
+      return(child);
+    }
+    child = child->next;
+  }
+}
+
+nodfindtype(node, type)
+  struct Node* node;
+  int type;
+{
+  struct Node* child;
+  child = node->first;
+  while(child != 0)
+  {
+    if (child->type == type)
+    {
+      return(child);
+    }
+    child = child->next;
+  }
+}
+
+struct Node* nodmk(type, parent)
+  int type;
+  struct Node* parent;
+{
+  extern int nodeidx;
+
+  struct Node* node;
+  node = calloc(1, sizeof(struct Node));
+  node->type      = type;
+  node->sub_type  = 0;
+  node->symbol    = 0;
+  node->index     = nodeidx++;
+  node->text      = 0;
+  node->next      = 0;
+  node->prev      = 0;
+  node->first     = 0;
+  node->last      = 0;
+  node->ctype     = 0;
+  node->integer   = 0;
+  node->cond      = 0;
+  node->flags     = 0;
+
+  nodadd(parent, node);
   return(node);
 }
 
@@ -264,6 +304,12 @@ nodprint(node, depth)
     break;
     case NODE_TYPE_SYMBOLS:
       printf("+ CSymbols");
+    break;
+    case NODE_TYPE_ARGUMENTS:
+      printf("+ Arguments");
+    break;
+    case NODE_TYPE_ARGUMENT:
+      printf("+ Argument '%s'", node->text);
     break;
     case NODE_TYPE_ASNOP:
       printf("+ ASNOP ");
@@ -626,9 +672,10 @@ nodrdasnop(parent)
 
 }
 
-/* nod read typedecl */
-nodrdtypedecl(scope)
+/* nod read typedecl. if args is not 0, it will read into an existing node in args, and add to the argument. */
+nodrdtypedecl(scope, args)
   struct Node* scope;
+  struct Node* args;
 {
   int is_struct;
   int is_pointer;
@@ -694,6 +741,16 @@ nodrdtypedecl(scope)
   
   node->text = tokcopys();
 
+  if (args != 0)
+  {
+    struct Node* arg;
+    arg = nodfind(args, node->text);
+    if (arg != 0)
+    {
+      nodadd(arg, node);
+    }
+  }
+
   read();
 
   /* []
@@ -743,6 +800,76 @@ nodrdtypedecl(scope)
   }
 
   expect(';');
+}
+
+nodrdargs(parent)
+  struct Node* parent;
+{
+  struct Node* node;
+  struct Node* arg;
+  char   expecting;
+
+  node = nodmk(NODE_TYPE_ARGUMENTS, parent);
+
+  expecting = 'n';
+
+  while(TRUE)
+  {
+    if (token != 'n' && token != ',')
+    {
+      printf("leave %c\n", token);
+      return;
+    }
+
+    if (expecting != token)
+    {
+      panic("Unexpected token in argument list!");
+    }
+
+    if (expecting == 'n')
+    {
+      expecting = ',';
+
+      arg = nodmk(NODE_TYPE_ARGUMENT, node);
+      arg->text = tokcopys();
+      printf("%s\n", arg->text);
+      read();
+      continue;
+    }
+
+    if (expecting == ',')
+    {
+      expecting = 'n';
+      read();
+      continue;
+    }
+  }
+}
+
+nodrdargvars(parent)
+  struct Node* parent;
+{
+  struct Node* args;
+  args = nodfindtype(parent, NODE_TYPE_ARGUMENTS);
+  printf("ARGS IS = %p\n", args);
+  // @TODO.
+  // Just a while loop of typedecls with a ;, until a {
+  while(TRUE)
+  {
+    if (token == '{')
+      break;
+    if (token == ';')
+    {
+      read();
+      if (token == '{')
+      {
+        break;
+      }
+    }
+    expect('n');
+    nodrdtypedecl(parent, args);
+  }
+  printf("ARGS END\n");
 }
 
 nodrdscope(parent)
@@ -795,7 +922,7 @@ nodrdscope(parent)
         {
           panic("type declared after statements!");
         }
-        nodrdtypedecl(scope);
+        nodrdtypedecl(scope, 0);
         continue;
       }
       else if (tokchecks("char"))
@@ -804,7 +931,7 @@ nodrdscope(parent)
         {
           panic("type declared after statements!");
         }
-        nodrdtypedecl(scope);
+        nodrdtypedecl(scope, 0);
         continue;
       }
       else if (tokchecks("struct"))
@@ -813,7 +940,7 @@ nodrdscope(parent)
         {
           panic("type declared after statements!");
         }
-        nodrdtypedecl(scope);
+        nodrdtypedecl(scope, 0);
         continue;
       }
       else if (tokchecks("extern"))
@@ -822,7 +949,7 @@ nodrdscope(parent)
         {
           panic("type declared after statements!");
         }
-        nodrdtypedecl(scope);
+        nodrdtypedecl(scope, 0);
         continue;
       }
       else
@@ -843,8 +970,16 @@ nodrdscope(parent)
 nodrdfun()
 {
   /*
-    In the form of
+    In the forms of:
       main()
+      {
+        Scope
+      }
+      main(x1, x2, x3...)
+        int x1;
+        int x2;
+        int x3;
+        ...
       {
         Scope
       }
@@ -855,14 +990,28 @@ nodrdfun()
   node->flags |= NODE_FLAGS_FUNCTION_FLAGS_DECLARED;
   
   read_and_expect('(');
-  // @TODO argument parsing
 
-  read_and_expect(')');
+  read();
+
+  if (token == 'n')
+  {
+    printf("x1\n");
+    nodrdargs(node);
+    printf("x2\n");
+  }
+
+  expect(')');
   
-  // @TODO argument parsing
-  node->flags |= NODE_FLAGS_FUNCTION_FLAGS_SCOPE;
+  read();
 
-  read_and_expect('{');
+  if (token != '{')
+  {
+    nodrdargvars(node);
+  }
+
+  expect('{');
+
+  node->flags |= NODE_FLAGS_FUNCTION_FLAGS_SCOPE;
 
   nodrdscope(node);
 }
@@ -946,7 +1095,20 @@ expect(ch)
 
   if (token != ch)
   {
-    panic("Unexpected token. Want a %c. Got %c", ch, token);
+    if (token == 'n')
+    {
+      printf("n = %s\n", tokgetn());
+    }
+    else if (token == 's')
+    {
+      printf("s = %s\n", tokgetn());
+    }
+    else if (token == 'i')
+    {
+      printf("i = %i\n", tokgeti());
+    }
+    panic("Unexpected token. Want a %c. Got %c.", ch, token);
+
   }
 }
 
@@ -981,6 +1143,10 @@ dont_expect(ch)
   if (token == ch)
   {
     panic("Unwanted token. Got %c", ch);
+    if (token == 'n')
+    {
+      printf("n = %s", tokgetn());
+    }
   }
 }
 

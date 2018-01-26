@@ -7,22 +7,6 @@
 #define TOKEN_STRING              's'
 #define TOKEN_NAME                'n'
 
-#define TOKEN_PARENTHESES_OPEN    '('
-#define TOKEN_PARENTHESES_CLOSE   ')'
-#define TOKEN_BRACE_OPEN          '{'
-#define TOKEN_BRACE_CLOSE         '}'
-#define TOKEN_BRACKET_OPEN        '['
-#define TOKEN_BRACKET_CLOSE       ']'
-#define TOKEN_HASH                '#'
-#define TOKEN_SEMICOLON           ';'
-#define TOKEN_LESS                '<'
-#define TOKEN_MORE                '>'
-#define TOKEN_EQUALS              '='
-#define TOKEN_ADD                 '+'
-#define TOKEN_SUB                 '-'
-#define TOKEN_MUL                 '*'
-#define TOKEN_DIV                 '/'
-
 #define STRING_MAX_SIZE           512
 #define NAME_MAX_SIZE             32
 
@@ -305,35 +289,22 @@ tokread()
   switch(tch)
   {
     case '(':
-      return(TOKEN_PARENTHESES_OPEN);
     case ')':
-      return(TOKEN_PARENTHESES_CLOSE);
     case '{':
-      return(TOKEN_BRACE_OPEN);
     case '}':
-      return(TOKEN_BRACE_CLOSE);
     case '[':
-      return(TOKEN_BRACKET_OPEN);
     case ']':
-      return(TOKEN_BRACKET_CLOSE);
     case ';':
-      return(TOKEN_SEMICOLON);
     case '<':
-      return(TOKEN_LESS);
     case '>':
-      return(TOKEN_MORE);
     case '#':
-      return(TOKEN_HASH);
     case '=':
-      return(TOKEN_EQUALS);
     case '+':
-      return(TOKEN_ADD);
     case '-':
-      return(TOKEN_SUB);
     case '*':
-      return(TOKEN_MUL);
     case '/':
-      return(TOKEN_DIV);
+    case ',':
+      return tch;
   }
 
   return(TOKEN_NONE);

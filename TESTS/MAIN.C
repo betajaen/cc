@@ -1,15 +1,11 @@
-test()
+strcmp(stra, strb)
+  char* stra;
+  char* strb;
 {
-  int* foo;
-  foo = 0;
+  int i;
+  i = 0;
   while(TRUE)
   {
-    extern int baz[];
-    int bar[22];
-
-    extern int strlen();
-
-    foo += 1234;
-    foo += 5678;
+    asm("test");
   }
 }
