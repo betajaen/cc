@@ -19,11 +19,13 @@
 #define NODE_TYPE_CTYPE                         14
 #define NODE_TYPE_CTYPES                        15
 #define NODE_TYPE_SYMBOLS                       16
-#define NODE_TYPE_STRUCT                        17
-#define NODE_TYPE_UNION                         18
-#define NODE_TYPE_ARGUMENT_LIST                 19
-#define NODE_TYPE_ARGUMENT                      20
-#define NODE_TYPE_REGISTER                      21
+#define NODE_TYPE_STRUCT                        17  /* struct name { };   */
+#define NODE_TYPE_UNION                         18  /* union name { };    */
+#define NODE_TYPE_ARGUMENT_LIST                 19  /* (x1, x2, x3, ...)  */
+#define NODE_TYPE_ARGUMENT                      20  /* x1, x2, x3, ...    */
+#define NODE_TYPE_REGISTER                      21  /* R0, R1, R2, ...    */
+#define NODE_TYPE_POINTERTO                     22  /* a->b               */
+#define NODE_TYPE_ARRAYINDEX                    23  /* a[3]               */
 
 #define SCOPE_TYPE_FUNCTION                     0
 #define SCOPE_TYPE_IF                           1
@@ -157,6 +159,7 @@ nodfind(node, text)
     }
     child = child->next;
   }
+  return 0;
 }
 
 nodfindtype(node, type)
@@ -173,6 +176,7 @@ nodfindtype(node, type)
     }
     child = child->next;
   }
+  return 0;
 }
 
 struct Node* nodmk(type, parent)
@@ -280,6 +284,12 @@ nodprint(node, depth)
     break;
     case NODE_TYPE_SYMBOL:
       printf("+ %s", node->text);
+    break;
+    case NODE_TYPE_POINTERTO:
+      printf("+ %s->", node->text);
+    break;
+    case NODE_TYPE_ARRAYINDEX:
+      printf("+ %s[]", node->text);
     break;
     case NODE_TYPE_FUNCTION:
       printf("+ %s()", node->text);
@@ -543,6 +553,85 @@ nodrdwhile(parent)
 }
 
 /*
+   name
+   name->name2
+*/
+struct Node* nodrdlvalue(parent)
+  struct Node* parent;
+{
+  struct Node* primary;
+  struct Node* identifier;
+  char* name;
+
+  expect('n');
+
+  name = tokcopys();
+
+  read();
+
+  if (token == '->')
+  {
+    read();
+    expect('n');
+
+    primary = nodmk(NODE_TYPE_POINTERTO, parent);
+    primary->text = name;
+
+    identifier = nodrdlvalue(primary);
+  }
+  else if (token == '.')
+  {
+    read();
+    expect('n');
+
+    primary = nodmk(NODE_TYPE_POINTERTO, parent);
+    primary->text = name;
+    
+    nodrdlvalue(primary);
+  }
+  else if (token == '[')
+  {
+    read();
+
+    if (token == 'i')
+    {
+      primary = nodmk(NODE_TYPE_ARRAYINDEX, parent);
+      primary->text = name;
+      identifier = nodmk(NODE_TYPE_NUMBER, primary);
+      identifier->integer = tokgeti();
+      
+      read();
+
+      expect(']');
+      
+      read();
+    }
+    else if (token == 'n')
+    {
+      primary = nodmk(NODE_TYPE_ARRAYINDEX, parent);
+      primary->text = name;
+
+      nodrdlvalue(primary);
+
+      expect(']');
+
+      read();
+    }
+    else
+    {
+      panic("Unknown synax for array index accessor");
+    }
+  }
+  else
+  {
+    primary = nodmk(NODE_TYPE_SYMBOL, parent);
+    primary->text = name;
+  }
+
+  return primary;
+}
+
+/*
    node read assign nop
    
    a =  b;
@@ -566,11 +655,8 @@ nodrdasnop(parent)
   struct Node* left;
   
   node = nodmk(NODE_TYPE_ASNOP, parent);
-  left = nodmk(NODE_TYPE_SYMBOL, node);
-  left->text = tokcopys();
+  left = nodrdlvalue(node);
 
-  read();
-  
   switch(token)
   {
     case '=':
@@ -657,17 +743,15 @@ nodrdasnop(parent)
       nodrdasnopr(node);
     }
     break;
-    case '<':
+    case '<<':
     {
-      read_and_expect('<');
       read_and_expect('=');
       node->sub_type = ASNOP_SHL;
       nodrdasnopr(node);
     }
     break;
-    case '>':
+    case '>>':
     {
-      read_and_expect('>');
       read_and_expect('=');
       node->sub_type = ASNOP_SHR;
       nodrdasnopr(node);

@@ -4,14 +4,11 @@ struct Vector
   char y;
 };
 
-union Combined
-{
-  struct Vector m;
-  int z;
-};
-
 print_vector(vec)
   struct Vector* vec;
 {
-  asm("test");
+  vec = 2;
+  vec->x = 5;
+  vec[3] = 7;
+  vec[vec->y[vec->x]] = 2;
 }

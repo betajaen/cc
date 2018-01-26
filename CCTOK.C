@@ -237,6 +237,29 @@ tokrst()
   tint    = 0;
 }
 
+peekahead(wanting)
+  char wanting;
+{
+  char oldtch;
+
+  oldtch = tch;
+
+  if (fread(&tch, 1, 1, tfile) == 1)
+  {
+    if (tch == wanting)
+    {
+      return TRUE;
+    }
+    else
+    {
+      fseek(tfile, -1, SEEK_CUR);
+      tch = oldtch;
+      return FALSE;
+    }
+  }
+  return FALSE;
+}
+
 /* read token */
 tokread()
 {
@@ -266,26 +289,67 @@ tokread()
     return(TOKEN_NONE);
   }
 
+  /*
+    12345
+  */
   if (tch >= '0' && tch <= '9')
   {
     return(tokreadi(tch));
   }
 
+  /*
+     name12345
+  */
   if (tokisname(tch) == TRUE)
   {
     return(tokreadn(tch));
   }
 
+  /* 
+     'a' 
+     'ab'
+  */
   if (tch == '\'')
   {
     return(tokreadl());
   }
 
+  /*
+     "some text"
+  */
   if (tch == '\"')
   {
     return(tokreads());
   }
 
+  /* -> */
+  if (tch == '-')
+  {
+    if (peekahead('>'))
+    {
+      return '->';
+    }
+  }
+
+  /* >> */
+  if (tch == '>')
+  {
+    if (peekahead('>'))
+    {
+      return '>>';
+    }
+  }
+  
+  /* << */
+  if (tch == '<')
+  {
+    if (peekahead('<'))
+    {
+      return '<<';
+    }
+  }
+
+  /* syntax */
   switch(tch)
   {
     case '(':
@@ -304,6 +368,7 @@ tokread()
     case '*':
     case '/':
     case ',':
+    case '.':
       return tch;
   }
 
