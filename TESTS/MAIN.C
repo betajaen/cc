@@ -12,6 +12,27 @@ union Vector2
 
 main()
 {
-  struct Vector vec;
-  asm("set r0, 4");
+  if(FALSE)
+  {
+    asm("setq r0, 1");
+  }
+  else
+  {
+    asm("setq r0, 1");
+  }
+}
+
+add(a, b)
+  int a;
+  int b;
+{
+  a += b;
+  asm("setq r0, r1");
+}
+
+clear(vec)
+  struct Vector* vec;
+{
+  vec->x = 0;
+  vec->y = 0;
 }

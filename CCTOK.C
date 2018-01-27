@@ -308,6 +308,7 @@ tokread()
     case '{':
     case '[':
     case ']':
+    case ':':
     case ';':
     case ',':
     case '#':
@@ -347,26 +348,20 @@ tokread()
     case '+':
     {
       if (peek('='))
-      {
         return('+=');
-      }
-      else
-      {
-        if (tchpeek == '+')
-          return('++');
-        return('+');
-      }
+      else if (peek('+'))
+        return('++');
+      return('+');
     }
     case '-':
     {
       if (peek('='))
         return('-=');
-      else
-      {
-        if (tchpeek == '-')
-          return('--');
-        return('-');
-      }
+      else if (peek('-'))
+        return('--');
+      else if (peek('>'))
+        return('->');
+      return('-');
     }
     case '*':
       return(peek('=') ? '*=' : '*');

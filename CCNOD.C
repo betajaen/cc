@@ -2,30 +2,36 @@
   cc -- C Compiler for DX8A Computer
 */
 
-#define NODE_TYPE_NONE                          0
-#define NODE_TYPE_FILE                          1
-#define NODE_TYPE_EOF                           2
-#define NODE_TYPE_SYMBOL                        3
-#define NODE_TYPE_FUNCTION                      4
-#define NODE_TYPE_SCOPE                         5
-#define NODE_TYPE_NUMBER                        6
-#define NODE_TYPE_ASSEMBLY                      7
-#define NODE_TYPE_WHILE                         8
-#define NODE_TYPE_RETURN                        9
-#define NODE_TYPE_BREAK                         10
-#define NODE_TYPE_STRING                        11
-#define NODE_TYPE_ASNOP                         12
-#define NODE_TYPE_TYPEDECL                      13
-#define NODE_TYPE_CTYPE                         14
-#define NODE_TYPE_CTYPES                        15
-#define NODE_TYPE_SYMBOLS                       16
-#define NODE_TYPE_STRUCT                        17  /* struct name { };   */
-#define NODE_TYPE_UNION                         18  /* union name { };    */
-#define NODE_TYPE_ARGUMENT_LIST                 19  /* (x1, x2, x3, ...)  */
-#define NODE_TYPE_ARGUMENT                      20  /* x1, x2, x3, ...    */
-#define NODE_TYPE_REGISTER                      21  /* R0, R1, R2, ...    */
-#define NODE_TYPE_POINTERTO                     22  /* a->b               */
-#define NODE_TYPE_ARRAYINDEX                    23  /* a[3]               */
+enum NodeType
+{
+  NODE_TYPE_NONE                        = 0 , 
+  NODE_TYPE_FILE                        = 1 , 
+  NODE_TYPE_EOF                         = 2 , 
+  NODE_TYPE_SYMBOL                      = 3 , 
+  NODE_TYPE_FUNCTION                    = 4 , 
+  NODE_TYPE_SCOPE                       = 5 , 
+  NODE_TYPE_NUMBER                      = 6 , 
+  NODE_TYPE_ASSEMBLY                    = 7 , 
+  NODE_TYPE_WHILE                       = 8 , 
+  NODE_TYPE_RETURN                      = 9 , 
+  NODE_TYPE_BREAK                       = 10, 
+  NODE_TYPE_STRING                      = 11, 
+  NODE_TYPE_ASNOP                       = 12, 
+  NODE_TYPE_TYPEDECL                    = 13, 
+  NODE_TYPE_CTYPE                       = 14, 
+  NODE_TYPE_CTYPES                      = 15, 
+  NODE_TYPE_SYMBOLS                     = 16, 
+  NODE_TYPE_STRUCT                      = 17, /* struct name { };   */
+  NODE_TYPE_UNION                       = 18, /* union name { };    */
+  NODE_TYPE_ARGUMENT_LIST               = 19, /* (x1, x2, x3, ...)  */
+  NODE_TYPE_ARGUMENT                    = 20, /* x1, x2, x3, ...    */
+  NODE_TYPE_REGISTER                    = 21, /* R0, R1, R2, ...    */
+  NODE_TYPE_POINTERTO                   = 22, /* a->b               */
+  NODE_TYPE_ARRAYINDEX                  = 23, /* a[3]               */
+  NODE_TYPE_GOTO                        = 24, /* goto label         */
+  NODE_TYPE_LABEL                       = 25, /* label:             */
+  NODE_TYPE_IF                          = 26, /* if (expression) {} */
+};
 
 #define SCOPE_TYPE_FUNCTION                     0
 #define SCOPE_TYPE_IF                           1
@@ -72,26 +78,34 @@ extern int tokchecks();
 
 struct Node
 {
-  int          type;
-  int          sub_type;
-  int          symbol;
-  int          index;
-  char*        text;
-  struct Node* next;
-  struct Node* prev;
-  struct Node* first;
-  struct Node* last;
-  struct Node* ctype;
-  struct Node* cond;
-  short        integer;
-  short        offset;
-  int          flags;
+  enum NodeType type;
+  int           sub_type;
+  int           symbol;
+  int           index;
+  char*         text;
+  struct Node*  next;
+  struct Node*  prev;
+  struct Node*  first;
+  struct Node*  last;
+  struct Node*  ctype;
+  struct Node*  cond;
+  short         integer;
+  short         offset;
+  int           flags;
 };
 
 int nodeidx;
 struct Node* cexterns;
 struct Node* ctypes;
 struct Node* csymbols;
+
+struct Node* csym_true;
+struct Node* csym_false;
+
+struct Node* ctype_char;
+struct Node* ctype_int;
+struct Node* ctype_short;
+struct Node* ctype_register;
 
 int token;
 
@@ -151,6 +165,17 @@ nodfindtype(node, type)
     child = child->next;
   }
   return 0;
+}
+
+nodlasttype(node)
+  struct Node* node;
+{
+  if (node != 0 && node->last != 0)
+  {
+    return node->last->type;
+  }
+
+  return NODE_TYPE_NONE;
 }
 
 struct Node* nodmk(type, parent)
@@ -241,6 +266,8 @@ nodsymi(name, val)
   value = nodmk(NODE_TYPE_NUMBER, node);
   value->integer = val;
   value->ctype   = nodfindctype("int");
+
+  return node;
 }
 
 /* node register symbol */
@@ -256,24 +283,6 @@ nodsymr(name, val)
   value = nodmk(NODE_TYPE_REGISTER, node);
   value->integer = val;
   value->ctype   = nodfindctype("register");
-}
-
-/* node read assembly */
-nodrdasm(parent)
-  struct Node* parent;
-{
-  struct Node* node;
-
-  /* asm("instructions"); */
-  expect_name("asm");
-  read_and_expect('(');
-  read_and_expect('s');
-  
-  node = nodmk(NODE_TYPE_ASSEMBLY, parent);
-  node->text = tokcopys();
-  
-  read_and_expect(')');
-  read_and_expect(';');
 }
 
 /* node read assign operator right param */
@@ -344,6 +353,65 @@ nodrdwhile(parent)
   read_and_expect('{');
   nodrdscope(while_);
 }
+
+/* node read if */
+nodrdif(parent)
+  struct Node* parent;
+{
+  struct Node* if_;
+  struct Scope* scope;
+
+  if (token == 'n')
+  {
+    if (tokchecks("if"))
+    {
+      if_ = nodmk(NODE_TYPE_IF, parent);
+      
+      read_and_expect('(');
+      read();
+
+      /* while(TRUE)
+         while(FALSE)
+         while(any_symbol)
+      */
+      if (token == 'n')
+      {
+        if_->cond = nodfindcsym(tokgets());
+      }
+      /*
+        while(0)  -> while(FALSE)
+        while(1)  -> while(TRUE)
+        while(any other number) -> while(TRUE)
+      */
+      else if (token == 'i')
+      {
+        if (tokgeti() == 0)
+        {
+          if_->cond = nodfindcsym("FALSE");
+        }
+        else
+        {
+          if_->cond = nodfindcsym("TRUE");
+        }
+      }
+      else
+      {
+        panic("Unexpected symbol for if");
+      }
+  
+      read_and_expect(')');
+    }
+    else
+    {
+      if_ = parent;
+    }
+  }
+
+  read_and_expect('{');
+  nodrdscope(if_);
+}
+
+
 
 /*
    name
@@ -518,6 +586,11 @@ nodrdasnop(parent)
       nodrdasnopr(node);
     }
     break;
+    case ':':
+    {
+      node->type = NODE_TYPE_LABEL;
+    }
+    return;
     default:
       printf("token=%c\n", token);
       panic("Unknown asnop symbol");
@@ -557,7 +630,7 @@ nodrdtypedecl(scope, args)
     struct test x;
     struct test* x;
     struct test  x[];
-    struct test  y[];
+    struct test  y[4];
     extern int   fn();
   */
   char* type_name = tokgets();
@@ -779,7 +852,40 @@ nodrdscope(parent)
           type_decl = 1;
           parent->flags |= NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL;
         }
-        nodrdasm(scope);
+
+        struct Node* node;
+
+        /* asm("instructions"); */
+        read_and_expect('(');
+        read_and_expect('s');
+  
+        node = nodmk(NODE_TYPE_ASSEMBLY, scope);
+        node->text = tokcopys();
+  
+        read_and_expect(')');
+        read_and_expect(';');
+
+        continue;
+      }
+      else if (tokchecks("goto"))
+      {
+        if (type_decl == 0)
+        {
+          type_decl = 1;
+          parent->flags |= NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL;
+        }
+        
+        /*
+            goto name;
+        */
+        struct Node* node;
+        
+        read_and_expect('n');
+        
+        node = nodmk(NODE_TYPE_GOTO, scope);
+        node->text = tokcopys();
+
+        read_and_expect(';');
         continue;
       }
       else if (tokchecks("while"))
@@ -790,6 +896,33 @@ nodrdscope(parent)
           parent->flags |= NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL;
         }
         nodrdwhile(scope);
+        continue;
+      }
+      else if (tokchecks("if"))
+      {
+        if (type_decl == 0)
+        {
+          type_decl = 1;
+          parent->flags |= NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL;
+        }
+        nodrdif(scope);
+        continue;
+      }
+      else if (tokchecks("else"))
+      {
+        if (type_decl == 0)
+        {
+          type_decl = 1;
+          parent->flags |= NODE_FLAGS_FUNCTION_FLAGS_TYPE_DECL;
+        }
+        if (nodlasttype(scope) == NODE_TYPE_IF)
+        {
+          nodrdif(scope->last);
+        }
+        else
+        {
+          panic("Unwanted else");
+        }
         continue;
       }
       else if (tokchecks("int"))
@@ -860,22 +993,27 @@ nodrdscope(parent)
   }
 }
 
-nodrdstruct()
+nodrdstructunion()
 {
   struct Node* node;
   struct Node* var;
-  
-  expect_name("struct");
+  int is_struct;
 
+  /* struct | union */
+  is_struct = tokchecks("struct");
+  
+  /* name */
   read_and_expect('n');
   char* struct_name = tokcopys();
 
   node = nodmkctype(struct_name, 0);
   node->flags |= NODE_FLAGS_TYPE_FLAGS_STRUCTUNION;
 
+  /* { */
   read_and_expect('{');
   read();
 
+  /* type-decl; */
   while(TRUE)
   {
     if (token == '};')
@@ -886,57 +1024,31 @@ nodrdstruct()
     read();
   }
   
+  /* ); */
   expect('};');
   
-  /* calculate struct size */
+  /* struct/union sizes/offsets. 
+     struct is sum of var sizes, union is largest var size.
+     struct vars offsets are sequential, union offsets are 0. */
   var = node->first;
-  while(var != 0)
+  if (is_struct)
   {
-    var->offset = node->integer;  /* offset */
-    node->integer += var->ctype->integer; /* struct size */
-    var = var->next;
+    while(var != 0)
+    {
+      var->offset = node->integer;  /* offset */
+      node->integer += var->ctype->integer; /* struct size */
+      var = var->next;
+    }
   }
-
-}
-
-nodrdunion()
-{
-  struct Node* node;
-  struct Node* var;
-  
-  expect_name("union");
-
-  read_and_expect('n');
-  char* struct_name = tokcopys();
-
-  node = nodmkctype(struct_name, 0);
-  node->flags |= NODE_FLAGS_TYPE_FLAGS_STRUCTUNION;
-  read_and_expect('{');
-  read();
-
-  while(TRUE)
+  else
   {
-    if (token == '};')
-      break;
-    expect('n');
-    nodrdtypedecl(node, 0);
-    expect(';');
-    read();
+    while(var != 0)
+    {
+      if (node->integer < var->ctype->integer)
+        node->integer = var->ctype->integer;
+      var = var->next;
+    }
   }
-  
-  expect('};');
-  
-  /* calculate struct size */
-  var = node->first;
-  /* calculate union size. The largest size */
-  var = node->first;
-  while(var != 0)
-  {
-    if (node->integer < var->ctype->integer)
-      node->integer = var->ctype->integer;
-    var = var->next;
-  }
-
 }
 
 nodrdfun()
@@ -987,59 +1099,20 @@ nodrdfun()
   nodrdscope(node);
 }
 
-/* read declaration from global scope*/
-nodrdglobdecl()
-{
-  if (tokchecks("struct"))
-  {
-    nodrdstruct();
-    return;
-  }
-  
-  if (tokchecks("union"))
-  {
-    nodrdunion();
-    return;
-  }
-
-  // If it's not a keyword, then it's probably a function.
-  nodrdfun();
-}
-
 nodinit()
 {
-  ctypes = nodmk(NODE_TYPE_CTYPES, 0);
-  nodmkctype("register", 2);
-  nodmkctype("char", 1);
-  nodmkctype("int",  2);
-  nodmkctype("short",  2);
+  ctypes    = nodmk(NODE_TYPE_CTYPES, 0);
+  ctype_register = nodmkctype("register", 2);
+  ctype_char     = nodmkctype("char", 1);
+  ctype_int      = nodmkctype("int",  2);
+  ctype_short    = nodmkctype("short",  2);
   
   csymbols = nodmk(NODE_TYPE_SYMBOLS, 0);
 
-  nodsymi("FALSE",0);
-  nodsymi("TRUE", 1);
-  nodsymi("NO",   0);
-  nodsymi("YES",  1);
+  csym_false     = nodsymi("FALSE",0);
+  csym_true      = nodsymi("TRUE", 1);
 
-  nodsymr("R0", 0);
-  nodsymr("R1", 1);
-  nodsymr("R2", 2);
-  nodsymr("R3", 3);
-  nodsymr("R4", 4);
-  nodsymr("R5", 5);
-  nodsymr("R6", 6);
-  nodsymr("R7", 7);
-  nodsymr("R8", 8);
-  nodsymr("R9", 9);
-  nodsymr("R10",10);
-  nodsymr("R11",11);
-  nodsymr("R12",12);
-  nodsymr("R13",13);
-  nodsymr("R14",14);
-  nodsymr("R15",15);
-  
   cexterns = nodmk(NODE_TYPE_FILE, 0);
-  
 }
 
 nodstop()
@@ -1055,15 +1128,20 @@ nodfile()
     
     token = read();
 
-    if (token == 'X')
-      break;
-
-    // main() {}
-    // struct name { type-decl-list };
-    if (token == 'n')
+    switch(token)
     {
-      nodrdglobdecl();
-      continue;
+      case 'X':
+        return;
+      case 'n':
+      {
+        if (tokchecks("struct") || tokchecks("union"))
+        {
+          nodrdstructunion();
+          break;
+        }
+        nodrdfun();
+      }
+      break;
     }
   }
 }
