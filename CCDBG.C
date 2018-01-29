@@ -46,16 +46,21 @@ nodprint(node, depth)
       printf("+ {}");
     break;
     case NODE_TYPE_NUMBER:
-      printf("+ %i", node->integer);
+      printf("+ %i", node->num_value);
     break;
     case NODE_TYPE_REGISTER:
-      printf("+ R%i", node->integer);
+      printf("+ R%i", node->num_value);
     break;
     case NODE_TYPE_ASSEMBLY:
       printf("+ ASM %s", node->text);
     break;
     case NODE_TYPE_WHILE:
       printf("+ while");
+      nodprint(node->while_cond, depth + 1);
+    break;
+    case NODE_TYPE_IF:
+      printf("+ if");
+      nodprint(node->if_cond, depth + 1);
     break;
     case NODE_TYPE_RETURN:
       printf("+ return");
@@ -67,7 +72,7 @@ nodprint(node, depth)
       printf("+ '%s'", node->text);
     break;
     case NODE_TYPE_CTYPE:
-      printf("+ Type '%s', Size=%i", node->text, node->integer);
+      printf("+ Type '%s', Size=%i", node->text, node->type_size);
     break;
     case NODE_TYPE_CTYPES:
       printf("+ CTypes");
@@ -84,25 +89,20 @@ nodprint(node, depth)
     case NODE_TYPE_ARGUMENT:
       printf("+ Argument '%s'", node->text);
     break;
-    case NODE_TYPE_ASNOP:
-      printf("+ ");
-      switch(node->sub_type)
-      {
-        case ASNOP_COPY: printf("=") ; break;
-        case ASNOP_ADD:  printf("+="); break;
-        case ASNOP_SUB:  printf("-="); break;
-        case ASNOP_MUL:  printf("*="); break;
-        case ASNOP_DIV:  printf("/="); break;
-        case ASNOP_MOD:  printf("%="); break;
-        case ASNOP_XOR:  printf("^="); break;
-        case ASNOP_OR:   printf("|="); break;
-        case ASNOP_AND:  printf("&="); break;
-        case ASNOP_INC:  printf("++"); break;
-        case ASNOP_DEC:  printf("--"); break;
-        case ASNOP_SHL:  printf("<<="); break;
-        case ASNOP_SHR:  printf(">>="); break;
-      }
-    break;
+    case NODE_TYPE_COPY: printf("+ =") ; break;
+    case NODE_TYPE_ADD:  printf("+ +="); break;
+    case NODE_TYPE_SUB:  printf("+ -="); break;
+    case NODE_TYPE_MUL:  printf("+ *="); break;
+    case NODE_TYPE_DIV:  printf("+ /="); break;
+    case NODE_TYPE_MOD:  printf("+ %="); break;
+    case NODE_TYPE_XOR:  printf("+ ^="); break;
+    case NODE_TYPE_OR:   printf("+ |="); break;
+    case NODE_TYPE_AND:  printf("+ &="); break;
+    case NODE_TYPE_INC:  printf("+ ++"); break;
+    case NODE_TYPE_DEC:  printf("+ --"); break;
+    case NODE_TYPE_SHL:  printf("+ <<="); break;
+    case NODE_TYPE_SHR:  printf("+ >>="); break;
+
   }
   
   printf("\n");
@@ -112,11 +112,6 @@ nodprint(node, depth)
     nodprint(node->ctype, depth + 1);
   }
   
-  if (node->cond != 0)
-  {
-    nodprint(node->cond, depth + 1);
-  }
-
   if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_POINTER) != 0)
   {
     i = 0;
@@ -138,7 +133,7 @@ nodprint(node, depth)
     }
     printf("+ Is Extern: TRUE\n");
   }
-
+  /*
   if ((node->flags & NODE_FLAGS_TYPEDECL_FLAGS_INTEGERISIZE) != 0)
   {
     i = 0;
@@ -160,7 +155,6 @@ nodprint(node, depth)
     }
     printf("+ Is Function Decl: TRUE\n");
   }
-  
   if (node->offset != 0)
   {
     i = 0;
@@ -171,6 +165,7 @@ nodprint(node, depth)
     }
     printf("+ Offset: %i\n", node->offset);
   }
+  */
 
   child = node->first;
   while(child != 0)

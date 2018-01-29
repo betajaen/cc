@@ -25,14 +25,13 @@ solution "CC"
     includedirs     { }
     libdirs         { }
 
-    excludes        { "CC.C", "CCARY.C", "CCCLI.C", "CCNOD.C", "CCTOK.C", "CCASM.C", "CCDBG.C", "TESTS/*.C" }
+    excludes        { "CC.C", "CCCLI.C", "CCNOD.C", "CCTOK.C", "CCASM.C", "CCDBG.C", "TESTS/*.C" }
 
     files           {
       "CCCLI.C",
       "CCNOD.C",
       "CCTOK.C",
       "CCASM.C",
-      "CCARY.C",
       "CCDBG.C",
       "MODERN.C",
       "CC.C",

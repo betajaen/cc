@@ -12,9 +12,9 @@ union Vector2
 
 main()
 {
-  if(FALSE)
+  if(TRUE)
   {
-    asm("setq r0, 1");
+    asm("setq r0, 0");
   }
   else
   {
@@ -33,6 +33,10 @@ add(a, b)
 clear(vec)
   struct Vector* vec;
 {
+  while(TRUE)
+  {
+    asm("WHILE ON");
+  }
   vec->x = 0;
   vec->y = 0;
 }

@@ -17,12 +17,12 @@ main(argc, argv)
     exit(1);
   }
 
-  nodinit();
-  nodfile();
+  node_init();
+  node_read_file();
   tokclose();
   noddbg();
   asm();
-  nodstop();
+  node_stop();
 }
 
 panic(text, x1, x2, x3, x4, x5, x6)

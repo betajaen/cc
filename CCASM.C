@@ -4,6 +4,16 @@
 
 FILE* asmfile;
 
+char base62[62] = {
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
+  'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
+  'U', 'V', 'W', 'X', 'Y', 'Z',
+  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j',
+  'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't',
+  'u', 'v', 'w', 'x', 'y', 'z'
+};
+
 label(name, x1, x2, x3, x4, x5)
   char* name;
 {
@@ -67,7 +77,7 @@ mangle(name, args)
   int count;
   struct Node* arg;
 
-  fprintf(asmfile, "F%s", name);
+  fprintf(asmfile, "%2X%s", strlen(name), name);
 
   if (args == 0)
   {
@@ -96,7 +106,7 @@ mangle(name, args)
   while(arg != 0)
   {
     struct Node* typedecl;
-    typedecl = nodfindtype(arg, NODE_TYPE_TYPEDECL);
+    typedecl = node_find_type(arg, NODE_TYPE_TYPEDECL);
 
     if (typedecl->ctype == ctype_char)
     {
@@ -112,7 +122,7 @@ mangle(name, args)
     }
     else if ((typedecl->ctype->flags & NODE_FLAGS_TYPE_FLAGS_STRUCTUNION) != 0)
     {
-      fprintf(asmfile, "S%X", typedecl->ctype->integer);
+      fprintf(asmfile, "S%X", typedecl->ctype->num_value);
     }
 
     arg = arg->next;
@@ -120,6 +130,39 @@ mangle(name, args)
 
 
 }
+
+eval_is_const_condition(node)
+  struct Node* node;
+{
+  if (node == 0)
+  {
+    return TRUE;
+  }
+
+  if (node->type == NODE_TYPE_NUMBER)
+  {
+    return TRUE;
+  }
+  
+  return FALSE;
+}
+
+eval_const_condition(node)
+  struct Node* node;
+{
+  if (node == 0)
+  {
+    return FALSE;
+  }
+  
+  if (node->type == NODE_TYPE_NUMBER)
+  {
+    return node->num_value != 0;
+  }
+
+  return FALSE;
+}
+
 
 asmscope(node, parent)
   struct Node* node;
@@ -150,69 +193,84 @@ asmscope(node, parent)
     else if (statement->type == NODE_TYPE_WHILE)
     {
       struct Node* cond;
+      int write_while;
+      int write_runtime;
 
-      cond = statement->cond->first;
-      if (cond != 0)
+      write_while = TRUE;
+      write_runtime = TRUE;
+      cond = statement->while_cond;
+      
+      if (eval_is_const_condition(statement->if_cond))
       {
-        /* while(number) */
-        if (cond->type == NODE_TYPE_NUMBER)
-        {
-          /* while(true) */
-          if (cond->integer == 1)
-          {
-            label("L%i", node->index);
-            asmscope(nodfindtype(statement, NODE_TYPE_SCOPE), node);
-            instruction("JMP L%i", node->index);
-          }
-        }
+        write_while = eval_const_condition(statement->if_cond);
+        write_runtime = FALSE;
       }
+
+      if (write_while)
+      {
+        label("L%i", statement->index);
+
+        if (write_runtime == TRUE)
+        {
+          /* write runtime condition and branch here */
+        }
+        
+        asmscope(statement->while_scope, statement);
+
+        instruction("BRA L%i", statement->index);
+        label("L%i_END", node->index);
+      }
+
     }
     else if (statement->type == NODE_TYPE_IF)
     {
       struct Node* cond;
+      int write_then, write_else;
 
-      cond = statement->cond->first;
-      if (cond != 0)
+      write_then = 1;
+      write_else = 1;
+
+      if (eval_is_const_condition(statement->if_cond))
       {
-        /* always true */
-        if (cond->type == NODE_TYPE_NUMBER)
+        if (eval_const_condition(statement->if_cond))
         {
-          /* fallthrough */
-          if (cond->integer == 0) /* false */
-          {
-            if (statement->last != statement->first)
-            {
-              instruction("BRA L%i_ELSE", statement->index);
-            }
-            else
-            {
-              instruction("BRA L%i_END", statement->index);
-            }
-          }
-          else /* true */
-          {
-            /* nothing, allow fallthrough. */
-          }
+          write_then = TRUE;
+          write_else = FALSE;
         }
-
-        /* if */
-        label("L%i_TRUE", statement->index);
-        asmscope(nodfindtype(statement, NODE_TYPE_SCOPE), node);
-
-        if (statement->last != statement->first)
+        else
         {
-          instruction("BRA L%i_END", statement->index);
+          write_then = FALSE;
+          write_else = TRUE;
         }
+      }
+      else
+      {
+        /* TODO Write runtime if condition */
+      }
 
-        /* else */
-        if (statement->last != statement->first)
+      if (write_then == TRUE)
+      {
+        if (write_else == TRUE)
+        {
+          label("L%i_THEN", statement->index);
+        }
+        asmscope(statement->if_then, statement);
+      }
+
+      if (write_else == TRUE)
+      {
+        if (write_then == TRUE)
         {
           label("L%i_ELSE", statement->index);
-          asmscope(statement->last, node);
         }
-        
+        asmscope(statement->if_else, statement);
+      }
+
+      if (write_then == TRUE && write_then == TRUE)
+      {
         label("L%i_END", statement->index);
       }
+
     }
     statement = statement->next;
   }
@@ -225,11 +283,11 @@ asmtable()
   node = cexterns->first;
   while(node != 0)
   {
-    
+     
     if (node->type == NODE_TYPE_FUNCTION)
     {
       struct Node* args;
-      args = nodfindtype(node, NODE_TYPE_ARGUMENT_LIST);
+      args = node_find_type(node, NODE_TYPE_ARGUMENT_LIST);
       
       text("; %s\n", node->text);
       text("db '");
@@ -253,7 +311,7 @@ asmfn(node)
   struct Node* statement;
   struct Node* args;
 
-  args = nodfindtype(node, NODE_TYPE_ARGUMENT_LIST);
+  args = node_find_type(node, NODE_TYPE_ARGUMENT_LIST);
   
   text("; %s\n", node->text);
   mangle(node->text, args);

@@ -5,7 +5,6 @@
 #include "HEADERS/STDLIB.H"
 #include "HEADERS/STDIO.H"
 
-#include "CCARY.C"
 #include "CCTOK.C"
 #include "CCNOD.C"
 #include "CCASM.C"

@@ -23,3 +23,10 @@ _dx8_exit(status)
 {
   exit(status);
 }
+
+_dx8_zero(mem, memsize)
+  int* mem;
+  int memsize;
+{
+  memset(mem, 0, memsize);
+}

@@ -1,4 +1,4 @@
-extern int strcmp(s1, s2);
+extern strcmp();
 extern int strlen(s);
 extern int isalpha(c);
 extern int islower(c);

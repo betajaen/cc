@@ -6,6 +6,7 @@
 #define calloc  _dx8_calloc
 #define cfree   _dx8_cfree
 #define exit    _dx8_exit
+#define zero    _dx8_zero
 
 /* STDIO.H */
 #define fopen   _dx8_fopen
